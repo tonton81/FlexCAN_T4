@@ -15,6 +15,7 @@ FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> Can0;
 CAN2 is the actual controlled on Teensy 4.0 being tested on pins 0 and 1. Can0 is the name the user gave to the object. The 2 others are buffer sizes for the bus interface to use.
 
 2) Currently, the speed of the flexcan controller is set to maximum, which is 60Mhz, as opposed to the SDK which runs at 20 or 24 Mhz. It will probably have a user switchable function in the future to switch between speeds.
+EDIT: getClock and setClock is added, the library now defaults to 24MHz oscillator, 60MHz can be activated in sketch during runtime.
 
 3) 64 mailbox support
 
@@ -29,3 +30,5 @@ CAN2 is the actual controlled on Teensy 4.0 being tested on pins 0 and 1. Can0 i
 8) Currently running on Teensy Beta1 board using pins 0 and 1.
 
 9) Up to 64 callbacks can be used. If FIFO is used, MB0 callback will be assigned and fired for reception, as FIFO occupies the first mailbox onwards.
+
+10) CAN1 is now supported, on pins 22 and 23.
