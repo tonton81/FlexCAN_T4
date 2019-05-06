@@ -8,16 +8,42 @@ void flexcan_isr_can1();
 
 FCTP_FUNC FCTP_OPT::FlexCAN_T4() {
   if ( _bus == CAN2 ) _CAN2 = this;
-  else if ( _bus == CAN1 ) _CAN1 = this;
+  if ( _bus == CAN1 ) _CAN1 = this;
+}
+
+FCTP_FUNC void FCTP_OPT::setClock(FLEXCAN_CLOCK clock) {
+  if ( clock == CLK_OFF ) CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(3) | CCM_CSCMR2_CAN_CLK_PODF(0);
+  if ( clock == CLK_8MHz ) CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(2) | CCM_CSCMR2_CAN_CLK_PODF(9);
+  if ( clock == CLK_16MHz ) CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(2) | CCM_CSCMR2_CAN_CLK_PODF(4);
+  if ( clock == CLK_24MHz ) CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(1) | CCM_CSCMR2_CAN_CLK_PODF(0);
+  if ( clock == CLK_20MHz ) CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(2) | CCM_CSCMR2_CAN_CLK_PODF(3);
+  if ( clock == CLK_30MHz ) CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(0) | CCM_CSCMR2_CAN_CLK_PODF(1);
+  if ( clock == CLK_60MHz ) CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(0) | CCM_CSCMR2_CAN_CLK_PODF(0);
+  if ( _CAN1 ) _CAN1->setBaudRate(currentBitrate);
+  if ( _CAN2 ) _CAN2->setBaudRate(currentBitrate);
+}
+
+FCTP_FUNC uint32_t FCTP_OPT::getClock() {
+  uint8_t clockSrc = 0;
+  if ( ((CCM_CSCMR2 & 0x300) >> 8) == 0 ) clockSrc = 60;
+  if ( ((CCM_CSCMR2 & 0x300) >> 8) == 1 ) clockSrc = 24;
+  if ( ((CCM_CSCMR2 & 0x300) >> 8) == 2 ) clockSrc = 80;
+  return (clockSrc / (((CCM_CSCMR2 & 0xFC) >> 2) +1));
 }
 
 FCTP_FUNC void FCTP_OPT::begin() {
-  CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(0) | CCM_CSCMR2_CAN_CLK_PODF(0);
+  setClock(CLK_24MHz);
   if ( _bus == CAN2 ) {
     nvicIrq = IRQ_CAN2;
     _VectorsRam[16 + nvicIrq] = flexcan_isr_can2;
     CCM_CCGR0 |= 0x3C0000;
     busNumber = 2;
+  }
+  if ( _bus == CAN1 ) {
+    nvicIrq = IRQ_CAN1;
+    _VectorsRam[16 + nvicIrq] = flexcan_isr_can1;
+    CCM_CCGR0 |= 0x3C000;
+    busNumber = 1;
   }
   FLEXCANb_MCR(_bus) &= ~FLEXCAN_MCR_MDIS; /* enable module */
   FLEXCAN_EnterFreezeMode();
@@ -214,8 +240,8 @@ FCTP_FUNC void FCTP_OPT::enableFIFO(bool status) {
   }
   /*
     RXMGMASK is provided for legacy application support.
-    •  When the MCR[IRMQ] bit is negated, RXMGMASK is always in effect.
-    •  When the MCR[IRMQ] bit is asserted, RXMGMASK has no effect.
+    â€¢  When the MCR[IRMQ] bit is negated, RXMGMASK is always in effect.
+    â€¢  When the MCR[IRMQ] bit is asserted, RXMGMASK has no effect.
     RXMGMASK is used to mask the filter fields of all Rx MBs, excluding MBs 14-15,
     which have individual mask registers
     RX14MASK/RX15MASK is provided for legacy application support. When the MCR[IRMQ] bit is
@@ -333,6 +359,7 @@ FCTP_FUNC void FCTP_OPT::FLEXCAN_EnterFreezeMode() {
 }
 
 FCTP_FUNC void FCTP_OPT::setBaudRate(uint32_t baud) {
+  if ( !getClock() ) return;
   unsigned mask;
   int clockXbits = 0, clockDivbits = 0, clockFreq = 0;
   currentBitrate = baud;
@@ -436,23 +463,42 @@ FCTP_FUNC void FCTP_OPT::setTx(FLEXCAN_PINS pin) {
   if ( _bus == CAN2 ) {
     if ( pin == DEF ) {
       CORE_PIN1_CONFIG = 0x10;
-      CORE_PIN1_PADCONFIG = 0xB0;
+      CORE_PIN1_PADCONFIG = 0x10B0;
+    }
+  }
+  if ( _bus == CAN1 ) {
+    if ( pin == DEF ) {
+      CORE_PIN22_CONFIG = 0x12;
+      CORE_PIN22_PADCONFIG = 0x10B0;
     }
   }
 }
 
 FCTP_FUNC void FCTP_OPT::setRx(FLEXCAN_PINS pin) {
   /* DAISY REGISTER CAN2
-    00 GPIO_EMC_10_ALT3 � Selecting Pad: GPIO_EMC_10 for Mode: ALT3
-    01 GPIO_AD_B0_03_ALT0 � Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
-    10 GPIO_AD_B0_15_ALT6 � Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
-    11 GPIO_B1_09_ALT6 � Selecting Pad: GPIO_B1_09 for Mode: ALT6
+    00 GPIO_EMC_10_ALT3 — Selecting Pad: GPIO_EMC_10 for Mode: ALT3
+    01 GPIO_AD_B0_03_ALT0 — Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
+    10 GPIO_AD_B0_15_ALT6 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
+    11 GPIO_B1_09_ALT6 — Selecting Pad: GPIO_B1_09 for Mode: ALT6
+  */
+  /* DAISY REGISTER CAN1
+    00 GPIO_SD_B1_03_ALT4 — Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
+    01 GPIO_EMC_18_ALT3 — Selecting Pad: GPIO_EMC_18 for Mode: ALT3
+    10 GPIO_AD_B1_09_ALT2 — Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
+    11 GPIO_B0_03_ALT2 — Selecting Pad: GPIO_B0_03 for Mode: ALT2
   */
   if ( _bus == CAN2 ) {
     if ( pin == DEF ) {
       IOMUXC_FLEXCAN2_RX_SELECT_INPUT = 0x01;
       CORE_PIN0_CONFIG = 0x10;
-      CORE_PIN0_PADCONFIG = 0xB0;
+      CORE_PIN0_PADCONFIG = 0x10B0;
+    }
+  }
+  if ( _bus == CAN1 ) {
+    if ( pin == DEF ) {
+      IOMUXC_FLEXCAN1_RX_SELECT_INPUT = 0x02;
+      CORE_PIN23_CONFIG = 0x12;
+      CORE_PIN23_PADCONFIG = 0x10B0;
     }
   }
 }
