@@ -3,11 +3,7 @@
 
 #include "Arduino.h"
 #include "circular_buffer.h"
-//#include <stdint.h>
-//#include <stddef.h>
 #include "imxrt_flexcan.h"
-//#include <memory>
-//#include <functional>
 
 typedef struct CAN_message_t {
   uint32_t id = 0;          // can identifier
@@ -105,6 +101,16 @@ typedef enum FLEXCAN_RXTX {
   RX
 } FLEXCAN_RXTX;
 
+typedef enum FLEXCAN_CLOCK {
+  CLK_OFF,
+  CLK_8MHz,
+  CLK_16MHz,
+  CLK_20MHz,
+  CLK_24MHz,
+  CLK_30MHz,
+  CLK_60MHz
+} FLEXCAN_CLOCK;
+
 typedef enum FLEXCAN_IDE {
   NONE = 0,
   EXT = 1,
@@ -181,6 +187,7 @@ typedef enum CAN_DEV_TABLE {
 class FlexCAN_T4_Base {
   public:
     virtual void flexcan_interrupt() = 0;
+    virtual void setBaudRate(uint32_t baud = 1000000) = 0;
     virtual void events() = 0;
 };
 
@@ -240,7 +247,9 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     void writeTxMailbox(uint8_t mb_num, const CAN_message_t &msg);
     void struct2queueTx(const CAN_message_t &msg);
     void struct2queueRx(const CAN_message_t &msg);
-
+    void setClock(FLEXCAN_CLOCK clock = CLK_24MHz);
+    uint32_t getClock();
+  
   private:
     uint8_t getNumMailBoxes() { return FLEXCANb_MAXMB_SIZE(_bus); }
     uint8_t mailboxOffset();
