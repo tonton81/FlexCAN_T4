@@ -177,7 +177,8 @@ typedef enum FLEXCAN_TXQUEUE_TABLE {
 
 typedef enum CAN_DEV_TABLE {
   CAN1 = (uint32_t)0x401D0000,
-  CAN2 = (uint32_t)0x401D4000
+  CAN2 = (uint32_t)0x401D4000,
+  CAN3 = (uint32_t)0x401D8000
 } CAN_DEV_TABLE;
 
 #define FCTP_CLASS template<CAN_DEV_TABLE _bus, FLEXCAN_RXQUEUE_TABLE _rxSize = RX_SIZE_16, FLEXCAN_TXQUEUE_TABLE _txSize = TX_SIZE_16>
@@ -193,6 +194,7 @@ class FlexCAN_T4_Base {
 
 FlexCAN_T4_Base* _CAN1 = nullptr;
 FlexCAN_T4_Base* _CAN2 = nullptr;
+FlexCAN_T4_Base* _CAN3 = nullptr;
 
 FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
   public:
@@ -249,13 +251,13 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     void struct2queueRx(const CAN_message_t &msg);
     void setClock(FLEXCAN_CLOCK clock = CLK_24MHz);
     uint32_t getClock();
+    void FLEXCAN_ExitFreezeMode();
+    void FLEXCAN_EnterFreezeMode();
   
   private:
     uint8_t getNumMailBoxes() { return FLEXCANb_MAXMB_SIZE(_bus); }
     uint8_t mailboxOffset();
     void softReset();
-    void FLEXCAN_ExitFreezeMode();
-    void FLEXCAN_EnterFreezeMode();
     int getFirstTxBox();
     _MB_ptr _mbHandlers[64]; /* individual mailbox handlers */
     _MB_ptr _mainHandler; /* global mailbox handler */
