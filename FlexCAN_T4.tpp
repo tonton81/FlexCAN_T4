@@ -3,10 +3,12 @@
 #include "Arduino.h"
 
 
+void flexcan_isr_can3();
 void flexcan_isr_can2();
 void flexcan_isr_can1();
 
 FCTP_FUNC FCTP_OPT::FlexCAN_T4() {
+  if ( _bus == CAN3 ) _CAN3 = this;
   if ( _bus == CAN2 ) _CAN2 = this;
   if ( _bus == CAN1 ) _CAN1 = this;
 }
@@ -21,6 +23,7 @@ FCTP_FUNC void FCTP_OPT::setClock(FLEXCAN_CLOCK clock) {
   if ( clock == CLK_60MHz ) CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(0) | CCM_CSCMR2_CAN_CLK_PODF(0);
   if ( _CAN1 ) _CAN1->setBaudRate(currentBitrate);
   if ( _CAN2 ) _CAN2->setBaudRate(currentBitrate);
+  if ( _CAN3 ) _CAN3->setBaudRate(currentBitrate);
 }
 
 FCTP_FUNC uint32_t FCTP_OPT::getClock() {
@@ -33,6 +36,12 @@ FCTP_FUNC uint32_t FCTP_OPT::getClock() {
 
 FCTP_FUNC void FCTP_OPT::begin() {
   setClock(CLK_24MHz);
+  if ( _bus == CAN3 ) {
+    nvicIrq = IRQ_CAN3;
+    _VectorsRam[16 + nvicIrq] = flexcan_isr_can3;
+    CCM_CCGR7 |= 0x3C0;
+    busNumber = 3;
+  }
   if ( _bus == CAN2 ) {
     nvicIrq = IRQ_CAN2;
     _VectorsRam[16 + nvicIrq] = flexcan_isr_can2;
@@ -460,21 +469,32 @@ FCTP_FUNC void FCTP_OPT::setRRS(bool rrs) { /* store remote frames */
 }
 
 FCTP_FUNC void FCTP_OPT::setTx(FLEXCAN_PINS pin) {
+  if ( _bus == CAN3 ) {
+    if ( pin == DEF ) {
+      IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_36 = 0x19; // pin31 T3B2
+      IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_36 = 0x10B0; // pin31 T3B2
+    }
+  }
   if ( _bus == CAN2 ) {
     if ( pin == DEF ) {
-      CORE_PIN1_CONFIG = 0x10;
-      CORE_PIN1_PADCONFIG = 0x10B0;
+      IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_02 = 0x10; // pin 1 T4B1+B2
+      IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_02 = 0x10B0; // pin 1 T4B1+B2
     }
   }
   if ( _bus == CAN1 ) {
     if ( pin == DEF ) {
-      CORE_PIN22_CONFIG = 0x12;
-      CORE_PIN22_PADCONFIG = 0x10B0;
+      IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_08 = 0x12; // pin 22 T4B1+B2
+      IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_08 = 0x10B0; // pin 22 T4B1+B2
     }
   }
 }
 
 FCTP_FUNC void FCTP_OPT::setRx(FLEXCAN_PINS pin) {
+  /* DAISY REGISTER CAN3
+    00 GPIO_EMC_37_ALT9 — Selecting Pad: GPIO_EMC_37 for Mode: ALT9
+    01 GPIO_AD_B0_15_ALT8 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
+    10 GPIO_AD_B0_11_ALT8 — Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
+  */
   /* DAISY REGISTER CAN2
     00 GPIO_EMC_10_ALT3 — Selecting Pad: GPIO_EMC_10 for Mode: ALT3
     01 GPIO_AD_B0_03_ALT0 — Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
@@ -487,18 +507,25 @@ FCTP_FUNC void FCTP_OPT::setRx(FLEXCAN_PINS pin) {
     10 GPIO_AD_B1_09_ALT2 — Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
     11 GPIO_B0_03_ALT2 — Selecting Pad: GPIO_B0_03 for Mode: ALT2
   */
+  if ( _bus == CAN3 ) {
+    if ( pin == DEF ) {
+      IOMUXC_CANFD_IPP_IND_CANRX_SELECT_INPUT = 0x00;
+      IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_37 = 0x19; // pin30 T3B2
+      IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_37 = 0x10B0; // pin30 T3B2
+    }
+  }
   if ( _bus == CAN2 ) {
     if ( pin == DEF ) {
       IOMUXC_FLEXCAN2_RX_SELECT_INPUT = 0x01;
-      CORE_PIN0_CONFIG = 0x10;
-      CORE_PIN0_PADCONFIG = 0x10B0;
+      IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_03 = 0x10; // pin 0 T4B1+B2
+      IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_03 = 0x10B0; // pin 0 T4B1+B2
     }
   }
   if ( _bus == CAN1 ) {
     if ( pin == DEF ) {
       IOMUXC_FLEXCAN1_RX_SELECT_INPUT = 0x02;
-      CORE_PIN23_CONFIG = 0x12;
-      CORE_PIN23_PADCONFIG = 0x10B0;
+      IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_09 = 0x12; // pin 23 T4B1+B2
+      IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_09 = 0x10B0; // pin 23 T4B1+B2
     }
   }
 }
@@ -783,6 +810,10 @@ void flexcan_isr_can1() {
 
 void flexcan_isr_can2() {
   if ( _CAN2 ) _CAN2->flexcan_interrupt();
+}
+
+void flexcan_isr_can3() {
+  if ( _CAN3 ) _CAN3->flexcan_interrupt();
 }
 
 FCTP_FUNC void FCTP_OPT::mbCallbacks(const FLEXCAN_MAILBOX &mb_num, const CAN_message_t &msg) {
