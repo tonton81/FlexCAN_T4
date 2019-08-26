@@ -2,7 +2,6 @@
 #include "imxrt_flexcan.h"
 #include "Arduino.h"
 
-
 void flexcan_isr_can3();
 void flexcan_isr_can2();
 void flexcan_isr_can1();
@@ -63,10 +62,14 @@ FCTP_FUNC void FCTP_OPT::begin() {
   while (!(FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FRZ_ACK));
   FLEXCANb_MCR(_bus) |= FLEXCAN_MCR_SRX_DIS; /* Disable self-reception */
   FLEXCANb_MCR(_bus) &= ~FLEXCAN_MCR_SUPV; /* Supervisor (1:default) or User Mode (0) */
-  disableFIFO(); /* clears all data and layout to mailbox mode */
+  disableFIFO(); /* clears all data and layout to legacy mailbox mode */
   FLEXCANb_MCR(_bus) |= FLEXCAN_MCR_IRMQ; // individual mailbox masking
   FLEXCANb_MCR(_bus) |= FLEXCAN_MCR_AEN; // TX ABORT FEATURE
   FLEXCANb_MCR(_bus) |= FLEXCAN_MCR_LPRIO_EN; // TX PRIORITY FEATURE
+  FLEXCANb_MCR(_bus) &= ~0x8800; // disable DMA and FD (valid bits are reserved in legacy controllers)
+//
+  FLEXCANb_MCR(_bus) |= 0x800; // FDEN 
+//
   FLEXCANb_CTRL2(_bus) |= FLEXCAN_CTRL2_RRS | // store remote frames
                                   FLEXCAN_CTRL2_EACEN | /* handles the way filtering works. Library adjusts to whether you use this or not */ 
                                   FLEXCAN_CTRL2_MRP; // mailbox > FIFO priority.
@@ -318,6 +321,31 @@ FCTP_FUNC void FCTP_OPT::writeIMASKBit(uint8_t mb_num, bool set) {
 FCTP_FUNC void FCTP_OPT::writeTxMailbox(uint8_t mb_num, const CAN_message_t &msg) {
   writeIFLAGBit(mb_num); // 1st step clear flag in case it's set as per datasheet
   ( msg.flags.remote ) ? FLEXCANb_MBn_CS(_bus, mb_num) |= FLEXCAN_MB_CS_RTR : FLEXCANb_MBn_CS(_bus, mb_num) &= ~FLEXCAN_MB_CS_RTR;
+//FLEXCANb_MBn_CS(_bus, mb_num) = (1UL << 31); // FD frame
+  FLEXCANb_MBn_CS(_bus, mb_num) |= FLEXCAN_MB_CS_LENGTH(msg.len+7);
+FLEXCANb_MBn_WORD0(_bus, mb_num) |= 0x55555555;
+//FLEXCANb_MBn_WORD1(_bus, mb_num) |= 0x55555555;
+//FLEXCANb_MBn_WORD2(_bus, mb_num) |= 0x55555555;
+
+//  for ( uint8_t i = 0; i < msg.len; i++ ) ( i < 4 ) ? (FLEXCANb_MBn_WORD0(_bus, mb_num) |= (*(msg.buf + i)) << ((3 - i) * 8)) : (FLEXCANb_MBn_WORD1(_bus, mb_num) |= (*(msg.buf + i)) << ((7 - i) * 8));
+
+//for ( uint8_t i = 0; i < 8; i++ ) FLEXCANb_MBn_DATA(_bus, mb_num, i) = 0x55555555;
+
+
+  FLEXCANb_MBn_ID(_bus, mb_num) = (( msg.flags.extended ) ? ( msg.id & FLEXCAN_MB_ID_EXT_MASK ) : FLEXCAN_MB_ID_IDSTD(msg.id));
+  FLEXCANb_MBn_CS(_bus, mb_num) |= FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_TX_ONCE);
+  if ( msg.flags.remote ) {
+    uint32_t timeout = millis();
+    while ( !(readIFLAG() & (1ULL << mb_num)) && (millis() - timeout < 10) );
+    writeIFLAGBit(mb_num);
+    FLEXCANb_MBn_CS(_bus, mb_num) = FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_TX_INACTIVE);
+  }
+}
+
+/*
+FCTP_FUNC void FCTP_OPT::writeTxMailbox(uint8_t mb_num, const CAN_message_t &msg) {
+  writeIFLAGBit(mb_num); // 1st step clear flag in case it's set as per datasheet
+  ( msg.flags.remote ) ? FLEXCANb_MBn_CS(_bus, mb_num) |= FLEXCAN_MB_CS_RTR : FLEXCANb_MBn_CS(_bus, mb_num) &= ~FLEXCAN_MB_CS_RTR;
   FLEXCANb_MBn_CS(_bus, mb_num) |= FLEXCAN_MB_CS_LENGTH(msg.len);
   FLEXCANb_MBn_WORD0(_bus, mb_num) = FLEXCANb_MBn_WORD1(_bus, mb_num) = 0;
   for ( uint8_t i = 0; i < msg.len; i++ ) ( i < 4 ) ? (FLEXCANb_MBn_WORD0(_bus, mb_num) |= (*(msg.buf + i)) << ((3 - i) * 8)) : (FLEXCANb_MBn_WORD1(_bus, mb_num) |= (*(msg.buf + i)) << ((7 - i) * 8));
@@ -330,6 +358,7 @@ FCTP_FUNC void FCTP_OPT::writeTxMailbox(uint8_t mb_num, const CAN_message_t &msg
     FLEXCANb_MBn_CS(_bus, mb_num) = FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_TX_INACTIVE);
   }
 }
+*/
 
 FCTP_FUNC uint8_t FCTP_OPT::mailboxOffset() {
   if ( !(FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FEN ) ) return 0; /* return offset 0 since FIFO is disabled */
@@ -935,7 +964,6 @@ FCTP_FUNC void FCTP_OPT::flexcan_interrupt() {
         continue;
     }
   }
-
   writeIFLAG(status);
   FLEXCANb_ESR1(_bus) |= FLEXCANb_ESR1(_bus);
 }
