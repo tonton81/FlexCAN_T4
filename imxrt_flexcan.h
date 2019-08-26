@@ -39,9 +39,11 @@
 #define FLEXCANb_MAXMB_SIZE(b)    ((FLEXCANb_MCR(b)&0x3F)+1)
 
 
-
-
-
+// CANFD (confirmed)
+#define FLEXCANb_FDCTRL(b)     (*(uint32_t*)(b+0xC00))
+#define FLEXCANb_FDCBT(b)     (*(uint32_t*)(b+0xC04))
+#define FLEXCANb_CBT(b)     (*(uint32_t*)(b+0x50))
+#define FLEXCANb_ERFCR(b)     (*(uint32_t*)(b+0xC0C))
 
 
 
