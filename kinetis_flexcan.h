@@ -7,111 +7,9 @@
 #define	__KINETIS_FLEXCAN_H
 
 #include <stdint.h>
-#define FLEXCAN1_BASE      (0x401D0000)
-#define FLEXCAN2_BASE      (0x401D4000)
 
-
-#define FLEXCANb_MCR(b)           (*(vuint32_t*)(b))
-#define FLEXCANb_CTRL1(b)         (*(vuint32_t*)(b+4))
-#define FLEXCANb_TIMER(b)         (*(vuint32_t*)(b+8))
-#define FLEXCANb_RXMGMASK(b)      (*(vuint32_t*)(b+0x10))
-#define FLEXCANb_RX14MASK(b)      (*(vuint32_t*)(b+0x14))
-#define FLEXCANb_RX15MASK(b)      (*(vuint32_t*)(b+0x18))
-#define FLEXCANb_ECR(b)           (*(vuint32_t*)(b+0x1C))
-#define FLEXCANb_ESR1(b)          (*(vuint32_t*)(b+0x20))
-#define FLEXCANb_IMASK2(b)        (*(vuint32_t*)(b+0x24))
-#define FLEXCANb_IMASK1(b)        (*(vuint32_t*)(b+0x28))
-#define FLEXCANb_IFLAG2(b)        (*(vuint32_t*)(b+0x2C))
-#define FLEXCANb_IFLAG1(b)        (*(vuint32_t*)(b+0x30))
-#define FLEXCANb_CTRL2(b)         (*(vuint32_t*)(b+0x34))
-#define FLEXCANb_ESR2(b)          (*(vuint32_t*)(b+0x38))
-#define FLEXCANb_CRCR(b)          (*(vuint32_t*)(b+0x44))
-#define FLEXCANb_RXFGMASK(b)      (*(vuint32_t*)(b+0x48))
-#define FLEXCANb_RXFIR(b)         (*(vuint32_t*)(b+0x4C))
-#define FLEXCANb_RXIMR(b, n)      (*(vuint32_t*)(b+0x880+(n*4)))
-#define FLEXCANb_GFWR(b, n)       (*(vuint32_t*)(b+0x1E0))
-
-#define FLEXCANb_MBn_CS(b, n)     (*(vuint32_t*)(b+0x80+n*0x10))
-#define FLEXCANb_MBn_ID(b, n)     (*(vuint32_t*)(b+0x84+n*0x10))
-#define FLEXCANb_MBn_WORD0(b, n)  (*(vuint32_t*)(b+0x88+n*0x10))
-#define FLEXCANb_MBn_WORD1(b, n)  (*(vuint32_t*)(b+0x8C+n*0x10))
-#define FLEXCANb_IDFLT_TAB(b, n)  (*(vuint32_t*)(b+0xE0+(n*4)))
-#define FLEXCANb_MAXMB_SIZE(b)    ((FLEXCANb_MCR(b)&0x3F)+1)
-
-
-// CANFD (confirmed valid)
-#define FLEXCANb_FDCTRL(b)     (*(vuint32_t*)(b+0xC00))
-#define FLEXCANb_FDCBT(b)     (*(vuint32_t*)(b+0xC04))
-#define FLEXCANb_CBT(b)     (*(vuint32_t*)(b+0x50))
-#define FLEXCANb_ERFCR(b)     (*(vuint32_t*)(b+0xC0C))
-
-
-
-
-
-
-
-
-
-
-#define FLEXCAN_MCR_IDAM(x)            (((x)&0x00000003)<<8)
-#define FLEXCAN_MCR_IDAM_MASK      (0x00000300)
-#define FLEXCAN_MCR_IDAM_BIT_NO        (8)
-#define FLEXCAN_MCR_AEN                (0x00001000)
-#define FLEXCAN_MCR_LPRIO_EN           (0x00002000)
-#define FLEXCAN_MCR_IRMQ               (0x00010000)
-#define FLEXCAN_MCR_SRX_DIS            (0x00020000)
-#define FLEXCAN_MCR_DOZE               (0x00040000)
-#define FLEXCAN_MCR_WAK_SRC            (0x00080000)
-#define FLEXCAN_MCR_LPM_ACK            (0x00100000)
-#define FLEXCAN_MCR_WRN_EN             (0x00200000)
-#define FLEXCAN_MCR_SLF_WAK            (0x00400000)
-#define FLEXCAN_MCR_SUPV               (0x00800000)
-#define FLEXCAN_MCR_FRZ_ACK            (0x01000000)
-#define FLEXCAN_MCR_SOFT_RST           (0x02000000)
-#define FLEXCAN_MCR_WAK_MSK            (0x04000000)
-#define FLEXCAN_MCR_NOT_RDY            (0x08000000)
-#define FLEXCAN_MCR_HALT               (0x10000000)
-#define FLEXCAN_MCR_FEN                (0x20000000)
-#define FLEXCAN_MCR_FRZ                (0x40000000)
-#define FLEXCAN_MCR_MDIS               (0x80000000)
-#define FLEXCAN_MCR_DMA                (0x00008000)
-
-#define FLEXCAN_CTRL_PROPSEG(x)        (((x)&0x00000007L)<<0)
-#define FLEXCAN_CTRL_LOM               (0x00000008)
-#define FLEXCAN_CTRL_LBUF              (0x00000010)
-#define FLEXCAN_CTRL_TSYNC             (0x00000020)
-#define FLEXCAN_CTRL_BOFF_REC          (0x00000040)
-#define FLEXCAN_CTRL_SMP               (0x00000080)
-#define FLEXCAN_CTRL_RWRN_MSK          (0x00000400)
-#define FLEXCAN_CTRL_TWRN_MSK          (0x00000800)
-#define FLEXCAN_CTRL_LPB               (0x00001000UL)
-#define FLEXCAN_CTRL_CLK_SRC           (0x00002000)
-#define FLEXCAN_CTRL_ERR_MSK           (0x00004000)
-#define FLEXCAN_CTRL_BOFF_MSK          (0x00008000)
-#define FLEXCAN_CTRL_PSEG2(x)          (((x)&0x00000007L)<<16)
-#define FLEXCAN_CTRL_PSEG1(x)          (((x)&0x00000007L)<<19)
-#define FLEXCAN_CTRL_RJW(x)            (((x)&0x00000003L)<<22)
-#define FLEXCAN_CTRL_PRESDIV(x)        (((x)&0x000000FFL)<<24)
-
-
-#define FLEXCAN_CTRL2_ISOCANFDEN          (BIT12)
-#define FLEXCAN_CTRL2_IMEUEN          (BIT31)
-#define FLEXCAN_CTRL2_RFFN             (0x0F000000UL)
-#define FLEXCAN_CTRL2_RFFN_BIT_NO      (24)
-#define FLEXCAN_CTRL2_TASD             (0x00F80000UL)
-#define FLEXCAN_CTRL2_TASD_BIT_NO      (19)
-#define FLEXCAN_CTRL2_MRP              (BIT18)
-#define FLEXCAN_CTRL2_RRS              (BIT17)
-#define FLEXCAN_CTRL2_EACEN            (BIT16)
-#define FLEXCAN_CTRL2_MUMASK           (BIT1)
-#define FLEXCAN_CTRL2_FUMASK           (BIT0)
-#define FLEXCAN_CTRL2_LOSTRLMSK      (BIT2)
-#define FLEXCAN_CTRL2_LOSTRMMSK      (BIT1)
-#define FLEXCAN_CTRL2_IMEUMASK       (BIT0)
-#define FLEXCAN_set_rffn(ctrl2,rffn)  ctrl2 = ((ctrl2) & ~FLEXCAN_CTRL2_RFFN) | ((rffn & 0xF)<<FLEXCAN_CTRL2_RFFN_BIT_NO)
 /* Common bit definition */
-#define BIT0             (1UL)
+#define BIT0             (1L)
 #define BIT1             (BIT0<<1)
 #define BIT2             (BIT0<<2)
 #define BIT3             (BIT0<<3)
@@ -123,29 +21,31 @@
 #define BIT9             (BIT0<<9)
 #define BIT10            (BIT0<<10)
 #define BIT11            (BIT0<<11)
-#define BIT12            (0x00001000UL)
-#define BIT13            (0x00002000UL)
-#define BIT14            (0x00004000UL)
-#define BIT15            (0x00008000UL)
-#define BIT16            (0x00010000UL)
-#define BIT17            (0x00020000UL)
-#define BIT18            (0x00040000UL)
-#define BIT19            (0x00080000UL)
-#define BIT20            (0x00100000UL)
-#define BIT21            (0x00200000UL)
-#define BIT22            (0x00400000UL)
-#define BIT23            (0x00800000UL)
-#define BIT24            (0x01000000UL)
-#define BIT25            (0x02000000UL)
-#define BIT26            (0x04000000UL)
-#define BIT27            (0x08000000UL)
-#define BIT28            (0x10000000UL)
-#define BIT29            (0x20000000UL)
-#define BIT30            (0x40000000UL)
-#define BIT31            (0x80000000UL)
+#define BIT12            (0x00001000L)
+#define BIT13            (0x00002000L)
+#define BIT14            (0x00004000L)
+#define BIT15            (0x00008000L)
+#define BIT16            (0x00010000L)
+#define BIT17            (0x00020000L)
+#define BIT18            (0x00040000L)
+#define BIT19            (0x00080000L)
+#define BIT20            (0x00100000L)
+#define BIT21            (0x00200000L)
+#define BIT22            (0x00400000L)
+#define BIT23            (0x00800000L)
+#define BIT24            (0x01000000L)
+#define BIT25            (0x02000000L)
+#define BIT26            (0x04000000L)
+#define BIT27            (0x08000000L)
+#define BIT28            (0x10000000L)
+#define BIT29            (0x20000000L)
+#define BIT30            (0x40000000L)
+#define BIT31            (0x80000000L)
 
 
 /* FlexCAN module I/O Base Addresss */
+#define FLEXCAN0_BASE			(0x40024000L)
+#define FLEXCAN1_BASE			(0x400A4000L)
 
 typedef volatile uint32_t vuint32_t;
 
@@ -234,7 +134,6 @@ typedef volatile uint32_t vuint32_t;
 *
 *********************************************************************/
 /* Register read/write macros */
-/*
 #define FLEXCAN1_MCR                   (*(vuint32_t*)(FLEXCAN1_BASE))
 #define FLEXCAN1_CTRL1                 (*(vuint32_t*)(FLEXCAN1_BASE+4))
 #define FLEXCAN1_TIMER                 (*(vuint32_t*)(FLEXCAN1_BASE+8))
@@ -260,7 +159,7 @@ typedef volatile uint32_t vuint32_t;
 
 #define FLEXCAN1_IMEUR                 FLEXCAN1_FUREQ
 #define FLEXCAN1_LRFR                  FLEXCAN1_FUACK
-*/
+
 /* Message Buffers */
 #define FLEXCAN1_MB0_CS                (*(vuint32_t*)(FLEXCAN1_BASE+0x80))
 #define FLEXCAN1_MB0_ID                (*(vuint32_t*)(FLEXCAN1_BASE+0x84))
@@ -273,10 +172,9 @@ typedef volatile uint32_t vuint32_t;
 #define FLEXCAN1_MBn_WORD1(n)			(*(vuint32_t*)(FLEXCAN1_BASE+0x8C+n*0x10))
 
 /* Rx Individual Mask Registers */
-/*
 #define FLEXCAN1_RXIMR0                (*(vuint32_t*)(FLEXCAN1_BASE+0x880))
 #define FLEXCAN1_RXIMRn(n)             (*(vuint32_t*)(FLEXCAN1_BASE+0x880+n*4))
-*/
+
 
 /* Rx FIFO ID Filter Table Element 0 to 127 */
 #define FLEXCAN1_IDFLT_TAB0		(*(vuint32_t*)(FLEXCAN1_BASE+0xE0))
@@ -307,12 +205,31 @@ typedef volatile uint32_t vuint32_t;
 #define FLEXCAN1_ERRSR					*(vuint32_t*)(FLEXCAN1_BASE+0x3B8C))
 
 /* Bit definitions and macros for FLEXCAN_MCR */
-/*
 #define FLEXCAN_MCR_MAXMB(x)           (((x)&0x0000007F)<<0)
+#define FLEXCAN_MCR_IDAM(x)            (((x)&0x00000003)<<8)
 #define FLEXCAN_MCR_MAXMB_MASK			(0x0000007F)
-*/
+#define FLEXCAN_MCR_IDAM_MASK			(0x00000300)
+#define FLEXCAN_MCR_IDAM_BIT_NO        (8)
+#define FLEXCAN_MCR_AEN                (0x00001000)
+#define FLEXCAN_MCR_LPRIO_EN           (0x00002000)
+#define FLEXCAN_MCR_IRMQ               (0x00010000)
+#define FLEXCAN_MCR_SRX_DIS            (0x00020000)
+#define FLEXCAN_MCR_DOZE               (0x00040000)
+#define FLEXCAN_MCR_WAK_SRC            (0x00080000)
+#define FLEXCAN_MCR_LPM_ACK            (0x00100000)
+#define FLEXCAN_MCR_WRN_EN             (0x00200000)
+#define FLEXCAN_MCR_SLF_WAK            (0x00400000)
+#define FLEXCAN_MCR_SUPV               (0x00800000)
+#define FLEXCAN_MCR_FRZ_ACK            (0x01000000)
+#define FLEXCAN_MCR_SOFT_RST           (0x02000000)
+#define FLEXCAN_MCR_WAK_MSK            (0x04000000)
+#define FLEXCAN_MCR_NOT_RDY            (0x08000000)
+#define FLEXCAN_MCR_HALT               (0x10000000)
+#define FLEXCAN_MCR_FEN                (0x20000000)
+#define FLEXCAN_MCR_FRZ                (0x40000000)
+#define FLEXCAN_MCR_MDIS               (0x80000000)
+
 /* Bit definitions and macros for FLEXCAN_CTRL */
-/*
 #define FLEXCAN_CTRL_PROPSEG(x)        (((x)&0x00000007L)<<0)
 #define FLEXCAN_CTRL_LOM               (0x00000008)
 #define FLEXCAN_CTRL_LBUF              (0x00000010)
@@ -321,7 +238,7 @@ typedef volatile uint32_t vuint32_t;
 #define FLEXCAN_CTRL_SMP               (0x00000080)
 #define FLEXCAN_CTRL_RWRN_MSK          (0x00000400)
 #define FLEXCAN_CTRL_TWRN_MSK          (0x00000800)
-#define FLEXCAN_CTRL_LPB               (0x00001000UL)
+#define FLEXCAN_CTRL_LPB               (0x00001000L)
 #define FLEXCAN_CTRL_CLK_SRC           (0x00002000)
 #define FLEXCAN_CTRL_ERR_MSK           (0x00004000)
 #define FLEXCAN_CTRL_BOFF_MSK          (0x00008000)
@@ -329,10 +246,23 @@ typedef volatile uint32_t vuint32_t;
 #define FLEXCAN_CTRL_PSEG1(x)          (((x)&0x00000007L)<<19)
 #define FLEXCAN_CTRL_RJW(x)            (((x)&0x00000003L)<<22)
 #define FLEXCAN_CTRL_PRESDIV(x)        (((x)&0x000000FFL)<<24)
-*/
+
 /* Bit definitions and macros for FLEXCAN_CTRL2 */
-/*
-*/
+#define FLEXCAN_CTRL2_IMEUEN	        (BIT31)
+#define FLEXCAN_CTRL2_RFFN             (0x0F000000L)
+#define FLEXCAN_CTRL2_RFFN_BIT_NO      (24)
+#define FLEXCAN_CTRL2_TASD             (0x00F80000L)
+#define FLEXCAN_CTRL2_TASD_BIT_NO      (19)
+#define FLEXCAN_CTRL2_MRP              (BIT18)
+#define FLEXCAN_CTRL2_RRS              (BIT17)
+#define FLEXCAN_CTRL2_EACEN            (BIT16)
+#define FLEXCAN_CTRL2_MUMASK           (BIT1)
+#define FLEXCAN_CTRL2_FUMASK           (BIT0)
+#define FLEXCAN_CTRL2_LOSTRLMSK		   (BIT2)
+#define FLEXCAN_CTRL2_LOSTRMMSK		   (BIT1)
+#define FLEXCAN_CTRL2_IMEUMASK		   (BIT0)
+#define FLEXCAN_set_rffn(ctrl2,rffn)	ctrl2 = ((ctrl2) & ~FLEXCAN_CTRL2_RFFN) | ((rffn & 0xF)<<FLEXCAN_CTRL2_RFFN_BIT_NO)
+
 
 /* Bit definitions and macros for FLEXCAN_TIMER */
 #define FLEXCAN_TIMER_TIMER(x)         (((x)&0x0000FFFF)<<0)
@@ -343,7 +273,6 @@ typedef volatile uint32_t vuint32_t;
 #define FLEXCAN_TCR_TRD                (0x00000400)
 
 /* Bit definitions and macros for FLEXCAN_RXGMASK */
-/*
 #define FLEXCAN_RXGMASK_MI0            (0x00000001)
 #define FLEXCAN_RXGMASK_MI1            (0x00000002)
 #define FLEXCAN_RXGMASK_MI2            (0x00000004)
@@ -376,9 +305,8 @@ typedef volatile uint32_t vuint32_t;
 #define FLEXCAN_RXGMASK_MI29           (0x20000000)
 #define FLEXCAN_RXGMASK_MI30           (0x40000000)
 #define FLEXCAN_RXGMASK_MI31           (0x80000000)
-*/
+
 /* Bit definitions and macros for FLEXCAN_RX14MASK */
-/*
 #define FLEXCAN_RX14MASK_MI0           (0x00000001)
 #define FLEXCAN_RX14MASK_MI1           (0x00000002)
 #define FLEXCAN_RX14MASK_MI2           (0x00000004)
@@ -411,7 +339,7 @@ typedef volatile uint32_t vuint32_t;
 #define FLEXCAN_RX14MASK_MI29          (0x20000000)
 #define FLEXCAN_RX14MASK_MI30          (0x40000000)
 #define FLEXCAN_RX14MASK_MI31          (0x80000000)
-*/
+
 /* Bit definitions and macros for FLEXCAN_RX15MASK */
 #define FLEXCAN_RX15MASK_MI0           (0x00000001)
 #define FLEXCAN_RX15MASK_MI1           (0x00000002)
@@ -477,7 +405,7 @@ typedef volatile uint32_t vuint32_t;
 /* Bit definition for FLEXCAN_ESR2 */
 #define FLEXCAN_ESR2_IMB            	(0x00002000)
 #define FLEXCAN_ESR2_VPS            	(0x00004000)
-#define FLEXCAN_ESR2_LTM            	(0x007F0000UL)
+#define FLEXCAN_ESR2_LTM            	(0x007F0000L)
 #define FLEXCAN_ESR2_LTM_BIT_NO       	(16)
 #define FLEXCAN_ESR2_LOSTRLF			(0x00000004)
 #define FLEXCAN_ESR2_LOSTRMF			(0x00000002)
@@ -554,14 +482,14 @@ typedef volatile uint32_t vuint32_t;
 
 /* Bit definitions and macros for FLEXCAN_MB_CS */
 #define FLEXCAN_MB_CS_TIMESTAMP(x)    (((x)&0x0000FFFF)<<0)
-#define FLEXCAN_MB_CS_TIMESTAMP_MASK  (0x0000FFFFUL)
+#define FLEXCAN_MB_CS_TIMESTAMP_MASK  (0x0000FFFFL)
 #define FLEXCAN_MB_CS_LENGTH(x)       (((x)&0x0000000F)<<16)
 #define FLEXCAN_MB_CS_RTR             (0x00100000)
 #define FLEXCAN_MB_CS_IDE             (0x00200000)
 #define FLEXCAN_MB_CS_SRR             (0x00400000)
 #define FLEXCAN_MB_CS_CODE(x)         (((x)&0x0000000F)<<24)
-#define FLEXCAN_MB_CS_CODE_MASK		(0x0F000000UL)
-#define FLEXCAN_MB_CS_DLC_MASK			(0x000F0000UL)
+#define FLEXCAN_MB_CS_CODE_MASK		(0x0F000000L)
+#define FLEXCAN_MB_CS_DLC_MASK			(0x000F0000L)
 #define FLEXCAN_MB_CODE_RX_INACTIVE	(0)
 #define FLEXCAN_MB_CODE_RX_EMPTY		(4)
 #define FLEXCAN_MB_CODE_RX_FULL		(2)

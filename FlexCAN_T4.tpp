@@ -1,3 +1,32 @@
+/*
+  MIT License
+
+  Copyright (c) 2018 Antonio Alexander Brewer (tonton81) - https://github.com/tonton81
+
+  Designed and tested for PJRC Teensy 4.0.
+
+  Forum link : https://forum.pjrc.com/threads/56035-FlexCAN_T4-FlexCAN-for-Teensy-4?highlight=flexcan_t4
+
+  Thanks goes to skpang, mjs513, and collin for tech/testing support
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*/
 #include <FlexCAN_T4.h>
 #include "imxrt_flexcan.h"
 #include "Arduino.h"
@@ -34,7 +63,8 @@ FCTP_FUNC uint32_t FCTP_OPT::getClock() {
 }
 
 FCTP_FUNC void FCTP_OPT::begin() {
-  setClock(CLK_24MHz);
+  if ( ((CCM_CSCMR2 & 0x300) >> 8) == 3 ) setClock(CLK_24MHz); /* no clock enabled, enable osc clock */
+
   if ( _bus == CAN3 ) {
     nvicIrq = IRQ_CAN3;
     _VectorsRam[16 + nvicIrq] = flexcan_isr_can3;
@@ -252,8 +282,8 @@ FCTP_FUNC void FCTP_OPT::enableFIFO(bool status) {
   }
   /*
     RXMGMASK is provided for legacy application support.
-    Ã¢â‚¬Â¢  When the MCR[IRMQ] bit is negated, RXMGMASK is always in effect.
-    Ã¢â‚¬Â¢  When the MCR[IRMQ] bit is asserted, RXMGMASK has no effect.
+    â€¢  When the MCR[IRMQ] bit is negated, RXMGMASK is always in effect.
+    â€¢  When the MCR[IRMQ] bit is asserted, RXMGMASK has no effect.
     RXMGMASK is used to mask the filter fields of all Rx MBs, excluding MBs 14-15,
     which have individual mask registers
     RX14MASK/RX15MASK is provided for legacy application support. When the MCR[IRMQ] bit is
@@ -520,21 +550,21 @@ FCTP_FUNC void FCTP_OPT::setTx(FLEXCAN_PINS pin) {
 
 FCTP_FUNC void FCTP_OPT::setRx(FLEXCAN_PINS pin) {
   /* DAISY REGISTER CAN3
-    00 GPIO_EMC_37_ALT9 â€” Selecting Pad: GPIO_EMC_37 for Mode: ALT9
-    01 GPIO_AD_B0_15_ALT8 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
-    10 GPIO_AD_B0_11_ALT8 â€” Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
+    00 GPIO_EMC_37_ALT9 — Selecting Pad: GPIO_EMC_37 for Mode: ALT9
+    01 GPIO_AD_B0_15_ALT8 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
+    10 GPIO_AD_B0_11_ALT8 — Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
   */
   /* DAISY REGISTER CAN2
-    00 GPIO_EMC_10_ALT3 â€” Selecting Pad: GPIO_EMC_10 for Mode: ALT3
-    01 GPIO_AD_B0_03_ALT0 â€” Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
-    10 GPIO_AD_B0_15_ALT6 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
-    11 GPIO_B1_09_ALT6 â€” Selecting Pad: GPIO_B1_09 for Mode: ALT6
+    00 GPIO_EMC_10_ALT3 — Selecting Pad: GPIO_EMC_10 for Mode: ALT3
+    01 GPIO_AD_B0_03_ALT0 — Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
+    10 GPIO_AD_B0_15_ALT6 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
+    11 GPIO_B1_09_ALT6 — Selecting Pad: GPIO_B1_09 for Mode: ALT6
   */
   /* DAISY REGISTER CAN1
-    00 GPIO_SD_B1_03_ALT4 â€” Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
-    01 GPIO_EMC_18_ALT3 â€” Selecting Pad: GPIO_EMC_18 for Mode: ALT3
-    10 GPIO_AD_B1_09_ALT2 â€” Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
-    11 GPIO_B0_03_ALT2 â€” Selecting Pad: GPIO_B0_03 for Mode: ALT2
+    00 GPIO_SD_B1_03_ALT4 — Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
+    01 GPIO_EMC_18_ALT3 — Selecting Pad: GPIO_EMC_18 for Mode: ALT3
+    10 GPIO_AD_B1_09_ALT2 — Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
+    11 GPIO_B0_03_ALT2 — Selecting Pad: GPIO_B0_03 for Mode: ALT2
   */
   if ( _bus == CAN3 ) {
     if ( pin == DEF ) {
