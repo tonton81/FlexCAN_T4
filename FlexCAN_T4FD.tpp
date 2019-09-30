@@ -163,7 +163,7 @@ FCTPFD_FUNC uint32_t FCTPFD_OPT::mailbox_offset(uint8_t mailbox, uint8_t &maxsiz
   if ( block0 == 0 ) {
     if ( mailbox <= 31 ) {
       maxsize = max_sizes[block0];
-      return _bus + 0x80 + (0x10 * mailbox);
+      return _bus + 0x80 + (shifts[block0] * mailbox);
     }
     else {
       maxsize = max_sizes[block1];
@@ -173,7 +173,7 @@ FCTPFD_FUNC uint32_t FCTPFD_OPT::mailbox_offset(uint8_t mailbox, uint8_t &maxsiz
   if ( block0 == 1 ) {
     if ( mailbox <= 20 ) {
       maxsize = max_sizes[block0];
-      return _bus + 0x80 + (0x18 * mailbox);
+      return _bus + 0x80 + (shifts[block0] * mailbox);
     }
     else {
       maxsize = max_sizes[block1];
@@ -183,7 +183,7 @@ FCTPFD_FUNC uint32_t FCTPFD_OPT::mailbox_offset(uint8_t mailbox, uint8_t &maxsiz
   if ( block0 == 2 ) {
     if ( mailbox <= 11 ) {
       maxsize = max_sizes[block0];
-      return _bus + 0x80 + (0x28 * mailbox);
+      return _bus + 0x80 + (shifts[block0] * mailbox);
     }
     else {
       maxsize = max_sizes[block1];
@@ -193,7 +193,7 @@ FCTPFD_FUNC uint32_t FCTPFD_OPT::mailbox_offset(uint8_t mailbox, uint8_t &maxsiz
   if ( block0 == 3 ) {
     if ( mailbox <= 6 ) {
       maxsize = max_sizes[block0];
-      return _bus + 0x80 + (0x48 * mailbox);
+      return _bus + 0x80 + (shifts[block0] * mailbox);
     }
     else {
       maxsize = max_sizes[block1];
@@ -215,14 +215,10 @@ FCTPFD_FUNC uint8_t FCTPFD_OPT::max_mailboxes() {
   uint8_t mb_count = 0;
   uint8_t block0 = (FLEXCANb_FDCTRL(_bus) & (3UL << 16)) >> 16;
   uint8_t block1 = (FLEXCANb_FDCTRL(_bus) & (3UL << 19)) >> 19;
-  if ( block0 == 0 ) mb_count = 32;
-  else if ( block0 == 1 ) mb_count = 21;
-  else if ( block0 == 2 ) mb_count = 12;
-  else if ( block0 == 3 ) mb_count = 7;
-  if ( block1 == 0 ) mb_count += 32;
-  else if ( block1 == 1 ) mb_count += 21;
-  else if ( block1 == 2 ) mb_count += 12;
-  else if ( block1 == 3 ) mb_count += 7;
+
+  const uint8_t sizes[4] = {32, 21, 12, 7};
+  mb_count = sizes[block0] + sizes[block1];
+
   if ( mb_count > ((FLEXCANb_MCR(_bus) & 0x3F) + 1) ) return ((FLEXCANb_MCR(_bus) & 0x3F) + 1);
   return mb_count;
 }
@@ -232,6 +228,7 @@ FCTPFD_FUNC int FCTPFD_OPT::write(FLEXCAN_MAILBOX mb_num, const CANFD_message_t 
   volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(mailbox_offset(mb_num, mbsize)));
 
   if ( !((FLEXCAN_get_code(mbxAddr[0])) >> 3) ) return 0; /* not a transmit mailbox */
+  if ( msg.seq && FLEXCAN_get_code(mbxAddr[0]) != FLEXCAN_MB_CODE_TX_INACTIVE ) return 0; /* non blocking resend sequential frames */
   uint32_t timeout = millis();
   while ( FLEXCAN_get_code(mbxAddr[0]) != FLEXCAN_MB_CODE_TX_INACTIVE ) {
     if ( millis() - timeout > 100 ) return 0;
@@ -339,21 +336,21 @@ FCTPFD_FUNC void FCTPFD_OPT::setTx(FLEXCAN_PINS pin) {
 
 FCTPFD_FUNC void FCTPFD_OPT::setRx(FLEXCAN_PINS pin) {
   /* DAISY REGISTER CAN3
-    00 GPIO_EMC_37_ALT9 — Selecting Pad: GPIO_EMC_37 for Mode: ALT9
-    01 GPIO_AD_B0_15_ALT8 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
-    10 GPIO_AD_B0_11_ALT8 — Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
+    00 GPIO_EMC_37_ALT9 â€” Selecting Pad: GPIO_EMC_37 for Mode: ALT9
+    01 GPIO_AD_B0_15_ALT8 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
+    10 GPIO_AD_B0_11_ALT8 â€” Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
   */
   /* DAISY REGISTER CAN2
-    00 GPIO_EMC_10_ALT3 — Selecting Pad: GPIO_EMC_10 for Mode: ALT3
-    01 GPIO_AD_B0_03_ALT0 — Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
-    10 GPIO_AD_B0_15_ALT6 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
-    11 GPIO_B1_09_ALT6 — Selecting Pad: GPIO_B1_09 for Mode: ALT6
+    00 GPIO_EMC_10_ALT3 â€” Selecting Pad: GPIO_EMC_10 for Mode: ALT3
+    01 GPIO_AD_B0_03_ALT0 â€” Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
+    10 GPIO_AD_B0_15_ALT6 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
+    11 GPIO_B1_09_ALT6 â€” Selecting Pad: GPIO_B1_09 for Mode: ALT6
   */
   /* DAISY REGISTER CAN1
-    00 GPIO_SD_B1_03_ALT4 — Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
-    01 GPIO_EMC_18_ALT3 — Selecting Pad: GPIO_EMC_18 for Mode: ALT3
-    10 GPIO_AD_B1_09_ALT2 — Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
-    11 GPIO_B0_03_ALT2 — Selecting Pad: GPIO_B0_03 for Mode: ALT2
+    00 GPIO_SD_B1_03_ALT4 â€” Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
+    01 GPIO_EMC_18_ALT3 â€” Selecting Pad: GPIO_EMC_18 for Mode: ALT3
+    10 GPIO_AD_B1_09_ALT2 â€” Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
+    11 GPIO_B0_03_ALT2 â€” Selecting Pad: GPIO_B0_03 for Mode: ALT2
   */
   if ( _bus == CAN3 ) {
     if ( pin == DEF ) {
