@@ -316,21 +316,21 @@ FCTPFD_CLASS class FlexCAN_T4FD : public FlexCAN_T4_Base {
     void distribute(bool state = 1) { distribution = state; }
 
   private:
+    uint64_t readIFLAG() { return (((uint64_t)FLEXCANb_IFLAG2(_bus) << 32) | FLEXCANb_IFLAG1(_bus)); }
+    uint32_t mailbox_offset(uint8_t mailbox, uint8_t &maxsize); 
+    void writeTxMailbox(uint8_t mb_num, const CANFD_message_t &msg);
+    int getFirstTxBox();
+    static uint32_t mb_filter_table[64][7];
     Circular_Buffer<uint8_t, (uint32_t)_rxSize, sizeof(CANFD_message_t)> rxBuffer;
     Circular_Buffer<uint8_t, (uint32_t)_txSize, sizeof(CANFD_message_t)> txBuffer;
     void FLEXCAN_ExitFreezeMode();
     void FLEXCAN_EnterFreezeMode();
     void reset() { softReset(); } /* reset flexcan controller (needs register restore capabilities...) */
     void flexcan_interrupt();
-    uint64_t readIFLAG() { return (((uint64_t)FLEXCANb_IFLAG2(_bus) << 32) | FLEXCANb_IFLAG1(_bus)); }
     void writeIFLAG(uint64_t value);
     void writeIFLAGBit(uint8_t mb_num);
-    uint32_t mailbox_offset(uint8_t mailbox, uint8_t &maxsize); 
-    void writeTxMailbox(uint8_t mb_num, const CANFD_message_t &msg);
-    int getFirstTxBox();
     uint8_t max_mailboxes();
     uint64_t readIMASK() { return (((uint64_t)FLEXCANb_IMASK2(_bus) << 32) | FLEXCANb_IMASK1(_bus)); }
-    static uint32_t mb_filter_table[64][7];
     void frame_distribution(CANFD_message_t &msg);
     void setBaudRate(uint32_t baud = 1000000) { ; } // unused, CAN2.0 only (needed for base class existance)
     void setClock(FLEXCAN_CLOCK clock = CLK_24MHz);
