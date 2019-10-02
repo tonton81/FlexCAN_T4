@@ -279,7 +279,7 @@ FCTPFD_FUNC bool FCTPFD_OPT::setMB(const FLEXCAN_MAILBOX &mb_num, const FLEXCAN_
   mbxAddr[1] = 0; // clear ID
   writeIFLAGBit(mb_num); /* clear mailbox flag */
   FLEXCANb_TIMER(_bus); /* reading timer unlocks individual mailbox */
-  if (mbxAddr[0] & 0x600000) mb_filter_table[mb_num][0] = (1 << 27); /* extended flag check */
+  mb_filter_table[mb_num][0] = ( ((mbxAddr[0] & 0x600000) ? 1UL : 0UL) << 27); /* extended flag check */
   return 1;
 }
 
@@ -591,7 +591,7 @@ FCTPFD_FUNC void FCTPFD_OPT::filter_store(FLEXCAN_FILTER_TABLE type, FLEXCAN_MAI
   mb_filter_table[mb_num][0] |= (type << 29); // we reserve 3 upper bits for type
   uint8_t mbsize;
   volatile uint32_t *mbxAddr = &(*(uint32_t*)(mailbox_offset(mb_num, mbsize)));
-  if (mbxAddr[0] & 0x600000) mb_filter_table[mb_num][0] |= (1 << 27); /* extended flag check */
+  mb_filter_table[mb_num][0] |= ( ((mbxAddr[0] & 0x600000) ? 1UL : 0UL) << 27); /* extended flag check */
   mb_filter_table[mb_num][1] = id1; // id1
   mb_filter_table[mb_num][2] = id2; // id2
   mb_filter_table[mb_num][3] = id3; // id3
@@ -649,7 +649,7 @@ FCTPFD_FUNC void FCTPFD_OPT::setMBFilter(FLEXCAN_FLTEN input) {
     if ( input == ACCEPT_ALL ) FLEXCANb_RXIMR(_bus, i) = 0UL | ((FLEXCANb_CTRL2(_bus) & FLEXCAN_CTRL2_EACEN) ? (1UL << 30) : 0); // (RXIMR)
     if ( input == REJECT_ALL ) FLEXCANb_RXIMR(_bus, i) = ~0UL; // (RXIMR)
     mbxAddr[1] = 0UL;
-    if (mbxAddr[0] & 0x600000) mb_filter_table[i][0] = (1 << 27); /* extended flag check */
+    mb_filter_table[i][0] = ( ((mbxAddr[0] & 0x600000) ? 1UL : 0UL) << 27); /* extended flag check */
   }
   if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
 }
@@ -664,7 +664,7 @@ FCTPFD_FUNC void FCTPFD_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, FLEXCAN_FLTEN i
   if ( input == ACCEPT_ALL ) FLEXCANb_RXIMR(_bus, mb_num) = 0UL | ((FLEXCANb_CTRL2(_bus) & FLEXCAN_CTRL2_EACEN) ? (1UL << 30) : 0); // (RXIMR)
   if ( input == REJECT_ALL ) FLEXCANb_RXIMR(_bus, mb_num) = ~0UL; // (RXIMR)
   mbxAddr[1] = 0UL;
-  if (mbxAddr[0] & 0x600000) mb_filter_table[mb_num][0] = (1 << 27); /* extended flag check */
+  mb_filter_table[mb_num][0] = ( ((mbxAddr[0] & 0x600000) ? 1UL : 0UL) << 27); /* extended flag check */
   if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
 }
 
