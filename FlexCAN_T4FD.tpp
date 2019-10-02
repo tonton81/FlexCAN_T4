@@ -52,11 +52,8 @@ FCTPFD_FUNC void FCTPFD_OPT::setClock(FLEXCAN_CLOCK clock) {
 }
 
 FCTPFD_FUNC uint32_t FCTPFD_OPT::getClock() {
-  uint8_t clockSrc = 0;
-  if ( ((CCM_CSCMR2 & 0x300) >> 8) == 0 ) clockSrc = 60;
-  if ( ((CCM_CSCMR2 & 0x300) >> 8) == 1 ) clockSrc = 24;
-  if ( ((CCM_CSCMR2 & 0x300) >> 8) == 2 ) clockSrc = 80;
-  return (clockSrc / (((CCM_CSCMR2 & 0xFC) >> 2) +1));
+  const uint8_t clocksrc[3] = {60, 24, 80};
+  return (clocksrc[(CCM_CSCMR2 & 0x300) >> 8] / (((CCM_CSCMR2 & 0xFC) >> 2) +1));
 }
 
 FCTPFD_FUNC void FCTPFD_OPT::begin() {
@@ -282,20 +279,13 @@ FCTPFD_FUNC bool FCTPFD_OPT::setMB(const FLEXCAN_MAILBOX &mb_num, const FLEXCAN_
   mbxAddr[1] = 0; // clear ID
   writeIFLAGBit(mb_num); /* clear mailbox flag */
   FLEXCANb_TIMER(_bus); /* reading timer unlocks individual mailbox */
-  mb_filter_table[mb_num][0] = 0;
+  if (mbxAddr[0] & 0x600000) mb_filter_table[mb_num][0] = (1 << 27); /* extended flag check */
   return 1;
 }
 
 FCTPFD_FUNC uint8_t FCTPFD_OPT::dlc_to_len(uint8_t val) {
-  if ( val <= 8 );
-  else if ( val == 9 ) val = 12;
-  else if ( val == 10 ) val = 16;
-  else if ( val == 11 ) val = 20;
-  else if ( val == 12 ) val = 24;
-  else if ( val == 13 ) val = 32;
-  else if ( val == 14 ) val = 48;
-  else if ( val == 15 ) val = 64;
-  return val;
+  const uint8_t dlcTolen[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
+  return dlcTolen[val];
 }
 
 FCTPFD_FUNC void FCTPFD_OPT::FLEXCAN_ExitFreezeMode() {
@@ -515,12 +505,13 @@ FCTPFD_FUNC int FCTPFD_OPT::readMB(CANFD_message_t &msg) {
     }
     volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(mailbox_offset(mailbox_reader_increment , mbsize)));
     if ((readIMASK() & (1ULL << mailbox_reader_increment))) continue; /* don't read interrupt enabled mailboxes */
-    if (!(readIFLAG() & (1ULL << mailbox_reader_increment))) continue; /* don't read unflagged mailboxes */
     uint32_t code = mbxAddr[0];
+    if ( (FLEXCAN_get_code(code) >> 3) ) continue; /* skip TX mailboxes */
+    if (!(code & 0x600000) && !(readIFLAG() & (1ULL << mailbox_reader_increment))) continue; /* don't read unflagged mailboxes, errata: extended mailboxes iflags do not work in poll mode, must check CS field */
     if ( ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_FULL ) ||
          ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) ) {
-      msg.id = (mbxAddr[1] & 0x1FFFFFFF) >> ((msg.flags.extended) ? 0 : 18);
       msg.flags.extended = code & (1UL << 21);
+      msg.id = (mbxAddr[1] & 0x1FFFFFFF) >> ((msg.flags.extended) ? 0 : 18);
       if ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) msg.flags.overrun = 1;
       msg.len = dlc_to_len((code & 0xF0000) >> 16);
       msg.mb = mailbox_reader_increment++;
@@ -530,8 +521,8 @@ FCTPFD_FUNC int FCTPFD_OPT::readMB(CANFD_message_t &msg) {
       mbxAddr[0] = FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_RX_EMPTY) | ((msg.flags.extended) ? (FLEXCAN_MB_CS_SRR | FLEXCAN_MB_CS_IDE) : 0);
       (void)FLEXCANb_TIMER(_bus); /* Read free-running timer to unlock Rx Message Buffer. */
       writeIFLAGBit(msg.mb);
-      if ( filter_match((FLEXCAN_MAILBOX)msg.mb, msg.id) ) return 1;
       frame_distribution(msg);
+      if ( filter_match((FLEXCAN_MAILBOX)msg.mb, msg.id) ) return 1;
     }
   } 
   return 0; /* no messages available */
@@ -573,8 +564,7 @@ FCTPFD_FUNC void FCTPFD_OPT::setMBFilterProcessing(FLEXCAN_MAILBOX mb_num, uint3
   uint8_t mbsize = 0;
   volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(mailbox_offset(mb_num, mbsize)));
   FLEXCANb_RXIMR(_bus, mb_num) = calculated_mask | ((FLEXCANb_CTRL2(_bus) & FLEXCAN_CTRL2_EACEN) ? (1UL << 30) : 0);
-  if (!(mbxAddr[0] & FLEXCAN_MB_CS_IDE)) mbxAddr[1] = FLEXCAN_MB_ID_IDSTD(filter_id);
-  else mbxAddr[1] = FLEXCAN_MB_ID_IDEXT(filter_id);
+  mbxAddr[1] = ((!(mbxAddr[0] & FLEXCAN_MB_CS_IDE)) ? FLEXCAN_MB_ID_IDSTD(filter_id) : FLEXCAN_MB_ID_IDEXT(filter_id));
   if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
 }
 
@@ -583,14 +573,12 @@ FCTPFD_FUNC bool FCTPFD_OPT::setMBFilterRange(FLEXCAN_MAILBOX mb_num, uint32_t i
   uint8_t mbsize = 0;
   volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(mailbox_offset(mb_num, mbsize)));
   if ( (FLEXCAN_get_code(mbxAddr[0]) >> 3) ) return 0; /* exit on TX mailbox */ 
-  bool extbit = mbxAddr[0] & FLEXCAN_MB_CS_IDE;
-  if ( (id1 > 0x7FF) != extbit || (id2 > 0x7FF) != extbit ) return 0;
   if ( id1 > id2 || ((id2 > id1) && (id2-id1>1000)) || !id1 || !id2 ) return 0; /* don't play around... */
   uint32_t stage1 = id1, stage2 = id1;
   for ( uint32_t i = id1 + 1; i <= id2; i++ ) {
     stage1 |= i; stage2 &= i;
   }
-  uint32_t mask = ( !extbit ) ? FLEXCAN_MB_ID_IDSTD( (stage1 ^ stage2) ^ 0x1FFFFFFF ) : FLEXCAN_MB_ID_IDEXT( (stage1 ^ stage2) ^ 0x1FFFFFFF );
+  uint32_t mask = ( !(mbxAddr[0] & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD( (stage1 ^ stage2) ^ 0x1FFFFFFF ) : FLEXCAN_MB_ID_IDEXT( (stage1 ^ stage2) ^ 0x1FFFFFFF );
   setMBFilterProcessing(mb_num,id1,mask);
   filter_store(FLEXCAN_RANGE, mb_num, 2, id1, id2, 0, 0, 0, mask);
   return 1;
@@ -599,7 +587,11 @@ FCTPFD_FUNC bool FCTPFD_OPT::setMBFilterRange(FLEXCAN_MAILBOX mb_num, uint32_t i
 FCTPFD_FUNC void FCTPFD_OPT::filter_store(FLEXCAN_FILTER_TABLE type, FLEXCAN_MAILBOX mb_num, uint32_t id_count, uint32_t id1, uint32_t id2, uint32_t id3, uint32_t id4, uint32_t id5, uint32_t mask) {
   mb_filter_table[mb_num][0] = mb_num; // first 7 bits reserved for MB
   mb_filter_table[mb_num][0] |= (id_count << 7); // we store the quantity of ids after the mailboxes 
+  /* bit 28: filter enabled */
   mb_filter_table[mb_num][0] |= (type << 29); // we reserve 3 upper bits for type
+  uint8_t mbsize;
+  volatile uint32_t *mbxAddr = &(*(uint32_t*)(mailbox_offset(mb_num, mbsize)));
+  if (mbxAddr[0] & 0x600000) mb_filter_table[mb_num][0] |= (1 << 27); /* extended flag check */
   mb_filter_table[mb_num][1] = id1; // id1
   mb_filter_table[mb_num][2] = id2; // id2
   mb_filter_table[mb_num][3] = id3; // id3
@@ -609,8 +601,8 @@ FCTPFD_FUNC void FCTPFD_OPT::filter_store(FLEXCAN_FILTER_TABLE type, FLEXCAN_MAI
 }
 
 FCTPFD_FUNC void FCTPFD_OPT::enhanceFilter(FLEXCAN_MAILBOX mb_num) {
-  if ( !mb_filter_table[mb_num][0] ) return;
-  mb_filter_table[mb_num][0] |= (1UL << 28);
+  if ( !(mb_filter_table[mb_num][0] & 0xE0000000) ) return;
+  mb_filter_table[mb_num][0] |= (1UL << 28); /* enable enhancement */
 }
 
 FCTPFD_FUNC bool FCTPFD_OPT::filter_match(FLEXCAN_MAILBOX mb_num, uint32_t id) {
@@ -629,7 +621,8 @@ FCTPFD_FUNC void FCTPFD_OPT::frame_distribution(CANFD_message_t &msg) {
   CANFD_message_t frame = msg;
   for ( uint8_t i = 0; i < max_mailboxes(); i++ ) {
     if ( frame.mb == i ) continue; // don't distribute to same mailbox
-    if ( !mb_filter_table[i][0] ) continue; // skip unset filters
+    if ( !(mb_filter_table[i][0] & 0xE0000000) ) continue; // skip unset filters
+    if ( (bool)(mb_filter_table[i][0] & (1UL << 27)) != msg.flags.extended ) continue; /* extended flag check */
     if ( (mb_filter_table[i][0] >> 29) == FLEXCAN_MULTI ) {
       for ( uint8_t p = 0; p < ((mb_filter_table[i][0] & 0x380) >> 7); p++) {
         if ( frame.id == mb_filter_table[i][p+1] ) {
@@ -656,7 +649,7 @@ FCTPFD_FUNC void FCTPFD_OPT::setMBFilter(FLEXCAN_FLTEN input) {
     if ( input == ACCEPT_ALL ) FLEXCANb_RXIMR(_bus, i) = 0UL | ((FLEXCANb_CTRL2(_bus) & FLEXCAN_CTRL2_EACEN) ? (1UL << 30) : 0); // (RXIMR)
     if ( input == REJECT_ALL ) FLEXCANb_RXIMR(_bus, i) = ~0UL; // (RXIMR)
     mbxAddr[1] = 0UL;
-    mb_filter_table[i][0] = 0;
+    if (mbxAddr[0] & 0x600000) mb_filter_table[i][0] = (1 << 27); /* extended flag check */
   }
   if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
 }
@@ -671,7 +664,7 @@ FCTPFD_FUNC void FCTPFD_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, FLEXCAN_FLTEN i
   if ( input == ACCEPT_ALL ) FLEXCANb_RXIMR(_bus, mb_num) = 0UL | ((FLEXCANb_CTRL2(_bus) & FLEXCAN_CTRL2_EACEN) ? (1UL << 30) : 0); // (RXIMR)
   if ( input == REJECT_ALL ) FLEXCANb_RXIMR(_bus, mb_num) = ~0UL; // (RXIMR)
   mbxAddr[1] = 0UL;
-    mb_filter_table[mb_num][0] = 0;
+  if (mbxAddr[0] & 0x600000) mb_filter_table[mb_num][0] = (1 << 27); /* extended flag check */
   if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
 }
 
@@ -680,9 +673,7 @@ FCTPFD_FUNC bool FCTPFD_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1) {
   uint8_t mbsize = 0;
   volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(mailbox_offset(mb_num, mbsize)));
   if ( (FLEXCAN_get_code(mbxAddr[0]) >> 3) ) return 0; /* exit on TX mailbox */ 
-  bool extbit = mbxAddr[0] & FLEXCAN_MB_CS_IDE;
-  if ( (id1 > 0x7FF) != extbit ) return 0;
-  uint32_t mask = ( !extbit ) ? FLEXCAN_MB_ID_IDSTD(((id1) ^ (id1)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1) ^ (id1)) ^ 0x1FFFFFFF);
+  uint32_t mask = ( !(mbxAddr[0] & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1) ^ (id1)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1) ^ (id1)) ^ 0x1FFFFFFF);
   setMBFilterProcessing(mb_num,id1,mask);
   filter_store(FLEXCAN_MULTI, mb_num, 1, id1, 0, 0, 0, 0, mask);
   return 1;
@@ -693,9 +684,7 @@ FCTPFD_FUNC bool FCTPFD_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, u
   uint8_t mbsize = 0;
   volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(mailbox_offset(mb_num, mbsize)));
   if ( (FLEXCAN_get_code(mbxAddr[0]) >> 3) ) return 0; /* exit on TX mailbox */ 
-  bool extbit = mbxAddr[0] & FLEXCAN_MB_CS_IDE;
-  if ( (id1 > 0x7FF) != extbit || (id2 > 0x7FF) != extbit ) return 0;
-  uint32_t mask = ( !extbit ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2) ^ (id1 & id2)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1 | id2) ^ (id1 & id2)) ^ 0x1FFFFFFF);
+  uint32_t mask = ( !(mbxAddr[0] & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2) ^ (id1 & id2)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1 | id2) ^ (id1 & id2)) ^ 0x1FFFFFFF);
   setMBFilterProcessing(mb_num,id1,mask);
   filter_store(FLEXCAN_MULTI, mb_num, 2, id1, id2, 0, 0, 0, mask);
   return 1;
@@ -706,9 +695,7 @@ FCTPFD_FUNC bool FCTPFD_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, u
   uint8_t mbsize = 0;
   volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(mailbox_offset(mb_num, mbsize)));
   if ( (FLEXCAN_get_code(mbxAddr[0]) >> 3) ) return 0; /* exit on TX mailbox */ 
-  bool extbit = mbxAddr[0] & FLEXCAN_MB_CS_IDE;
-  if ( (id1 > 0x7FF) != extbit || (id2 > 0x7FF) != extbit || (id3 > 0x7FF) != extbit ) return 0;
-  uint32_t mask = ( !extbit ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2 | id3) ^ (id1 & id2 & id3)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1 | id2 | id3) ^ (id1 & id2 & id3)) ^ 0x1FFFFFFF);
+  uint32_t mask = ( !(mbxAddr[0] & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2 | id3) ^ (id1 & id2 & id3)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1 | id2 | id3) ^ (id1 & id2 & id3)) ^ 0x1FFFFFFF);
   setMBFilterProcessing(mb_num,id1,mask);
   filter_store(FLEXCAN_MULTI, mb_num, 3, id1, id2, id3, 0, 0, mask);
   return 1;
@@ -719,9 +706,7 @@ FCTPFD_FUNC bool FCTPFD_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, u
   uint8_t mbsize = 0;
   volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(mailbox_offset(mb_num, mbsize)));
   if ( (FLEXCAN_get_code(mbxAddr[0]) >> 3) ) return 0; /* exit on TX mailbox */ 
-  bool extbit = mbxAddr[0] & FLEXCAN_MB_CS_IDE;
-  if ( (id1 > 0x7FF) != extbit || (id2 > 0x7FF) != extbit || (id3 > 0x7FF) != extbit || (id4 > 0x7FF) != extbit ) return 0;
-  uint32_t mask = ( !extbit ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2 | id3 | id4) ^ (id1 & id2 & id3 & id4)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1 | id2 | id3 | id4) ^ (id1 & id2 & id3 & id4)) ^ 0x1FFFFFFF);
+  uint32_t mask = ( !(mbxAddr[0] & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2 | id3 | id4) ^ (id1 & id2 & id3 & id4)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1 | id2 | id3 | id4) ^ (id1 & id2 & id3 & id4)) ^ 0x1FFFFFFF);
   setMBFilterProcessing(mb_num,id1,mask);
   filter_store(FLEXCAN_MULTI, mb_num, 4, id1, id2, id3, id4, 0, mask);
   return 1;
@@ -732,9 +717,7 @@ FCTPFD_FUNC bool FCTPFD_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, u
   uint8_t mbsize = 0;
   volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(mailbox_offset(mb_num, mbsize)));
   if ( (FLEXCAN_get_code(mbxAddr[0]) >> 3) ) return 0; /* exit on TX mailbox */ 
-  bool extbit = mbxAddr[0] & FLEXCAN_MB_CS_IDE;
-  if ( (id1 > 0x7FF) != extbit || (id2 > 0x7FF) != extbit || (id3 > 0x7FF) != extbit || (id4 > 0x7FF) != extbit || (id5 > 0x7FF) != extbit ) return 0;
-  uint32_t mask = ( !extbit ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2 | id3 | id4 | id5) ^ (id1 & id2 & id3 & id4 & id5)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1 | id2 | id3 | id4 | id5) ^ (id1 & id2 & id3 & id4 & id5)) ^ 0x1FFFFFFF);
+  uint32_t mask = ( !(mbxAddr[0] & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2 | id3 | id4 | id5) ^ (id1 & id2 & id3 & id4 & id5)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1 | id2 | id3 | id4 | id5) ^ (id1 & id2 & id3 & id4 & id5)) ^ 0x1FFFFFFF);
   setMBFilterProcessing(mb_num,id1,mask);
   filter_store(FLEXCAN_MULTI, mb_num, 5, id1, id2, id3, id4, id5, mask);
   return 1;
