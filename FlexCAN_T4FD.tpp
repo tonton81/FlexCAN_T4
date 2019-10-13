@@ -52,12 +52,12 @@ FCTPFD_FUNC void FCTPFD_OPT::setClock(FLEXCAN_CLOCK clock) {
 }
 
 FCTPFD_FUNC uint32_t FCTPFD_OPT::getClock() {
-  const uint8_t clocksrc[3] = {60, 24, 80};
-  return (clocksrc[(CCM_CSCMR2 & 0x300) >> 8] / (((CCM_CSCMR2 & 0xFC) >> 2) +1));
+  const uint8_t clocksrc[4] = {60, 24, 80, 0};
+  return clocksrc[(CCM_CSCMR2 & 0x300) >> 8];
 }
 
 FCTPFD_FUNC void FCTPFD_OPT::begin() {
-  setClock(CLK_24MHz);
+  if ( !getClock() ) setClock(CLK_24MHz); /* no clock enabled, enable osc clock */
   CCM_CCGR0 |= CCM_CCGR0_LPUART3(CCM_CCGR_ON); /* hardware bug, FD is unable to operate without an LPUART clock online */
   if ( _bus == CAN3 ) {
     nvicIrq = IRQ_CAN3;
@@ -277,8 +277,8 @@ FCTPFD_FUNC bool FCTPFD_OPT::setMB(const FLEXCAN_MAILBOX &mb_num, const FLEXCAN_
   else if ( mb_rx_tx == RX ) mbxAddr[0] = FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_RX_EMPTY) | ((ide != EXT) ? 0 : FLEXCAN_MB_CS_SRR | FLEXCAN_MB_CS_IDE);
   else if ( mb_rx_tx == TX ) mbxAddr[0] = FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_TX_INACTIVE);
   mbxAddr[1] = 0; // clear ID
-  writeIFLAGBit(mb_num); /* clear mailbox flag */
   FLEXCANb_TIMER(_bus); /* reading timer unlocks individual mailbox */
+  writeIFLAGBit(mb_num); /* clear mailbox flag */
   mb_filter_table[mb_num][0] = ( ((mbxAddr[0] & 0x600000) ? 1UL : 0UL) << 27); /* extended flag check */
   return 1;
 }
@@ -423,13 +423,13 @@ FCTPFD_FUNC void FCTPFD_OPT::flexcan_interrupt() {
   for ( uint8_t mb_num = 0, mbsize = 0; mb_num < max_mailboxes(); mb_num++ ) {
     if (!(imask & (1ULL << mb_num))) continue; /* don't read non-interrupt mailboxes */
     if (!(iflag & (1ULL << mb_num))) continue; /* don't read unflagged mailboxes */
-    volatile uint32_t *mbxAddr = &(*(uint32_t*)(mailbox_offset(mb_num, mbsize)));
+    volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(mailbox_offset(mb_num, mbsize)));
     uint32_t code = mbxAddr[0];
     if ( ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_FULL ) ||
          ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) ) {
       msg.flags.extended = (bool)(code & (1UL << 21));
       msg.id = (mbxAddr[1] & 0x1FFFFFFF) >> ((msg.flags.extended) ? 0 : 18);
-      if ( FLEXCAN_MB_CODE_RX_OVERRUN == code ) msg.flags.overrun = 1;
+      if ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) msg.flags.overrun = 1;
       msg.len = dlc_to_len((code & 0xF0000) >> 16);
       msg.mb = mb_num;
       msg.timestamp = code & 0xFFFF;
@@ -459,7 +459,7 @@ FCTPFD_FUNC void FCTPFD_OPT::struct2queueTx(const CANFD_message_t &msg) {
 
 FCTPFD_FUNC int FCTPFD_OPT::write(const CANFD_message_t &msg) {
   if ( msg.seq ) {
-    struct2queueTx(msg);
+    if ( !write((FLEXCAN_MAILBOX)getFirstTxBox(), msg) ) struct2queueTx(msg);
     return 1;
   }
   for (uint8_t i = 0, mbsize = 0; i < max_mailboxes(); i++) {
@@ -487,8 +487,7 @@ FCTPFD_FUNC void FCTPFD_OPT::events() {
     uint8_t buf[sizeof(CANFD_message_t)];
     txBuffer.peek_front(buf, sizeof(CANFD_message_t));
     memmove(&frame, buf, sizeof(frame));
-    bool success = write((FLEXCAN_MAILBOX)getFirstTxBox(), frame);
-    if ( success ) txBuffer.pop_front();
+    if ( write((FLEXCAN_MAILBOX)getFirstTxBox(), frame) ) txBuffer.pop_front();
   }
 }
 
@@ -549,6 +548,7 @@ FCTPFD_FUNC void FCTPFD_OPT::enableFIFO(bool status) {
       volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(mailbox_offset(i, mbsize)));
       if ( i < max_mailboxes() / 2 ) {
         mbxAddr[0] = FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_RX_EMPTY) | ((i < (max_mailboxes() / 4)) ? 0 : FLEXCAN_MB_CS_IDE | FLEXCAN_MB_CS_SRR);
+        FLEXCANb_RXIMR(_bus, i) = 0UL | ((FLEXCANb_CTRL2(_bus) & FLEXCAN_CTRL2_EACEN) ? (1UL << 30) : 0); // (RXIMR)
       }
       else {
         mbxAddr[0] = FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_TX_INACTIVE);
@@ -590,7 +590,7 @@ FCTPFD_FUNC void FCTPFD_OPT::filter_store(FLEXCAN_FILTER_TABLE type, FLEXCAN_MAI
   /* bit 28: filter enabled */
   mb_filter_table[mb_num][0] |= (type << 29); // we reserve 3 upper bits for type
   uint8_t mbsize;
-  volatile uint32_t *mbxAddr = &(*(uint32_t*)(mailbox_offset(mb_num, mbsize)));
+  volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(mailbox_offset(mb_num, mbsize)));
   mb_filter_table[mb_num][0] |= ( ((mbxAddr[0] & 0x600000) ? 1UL : 0UL) << 27); /* extended flag check */
   mb_filter_table[mb_num][1] = id1; // id1
   mb_filter_table[mb_num][2] = id2; // id2
