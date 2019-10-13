@@ -37,6 +37,7 @@
 typedef struct CAN_message_t {
   uint32_t id = 0;          // can identifier
   uint16_t timestamp = 0;   // FlexCAN time when message arrived
+  uint16_t idhit = 0; // filter which passed frame into fifo
   struct {
     bool extended = 0; // identifier is extended (29-bit)
     bool remote = 0;  // remote transmission request packet type
@@ -190,7 +191,9 @@ typedef enum FLEXCAN_FLTEN {
 
 typedef enum FLEXCAN_FILTER_TABLE {
   FLEXCAN_MULTI = 1,
-  FLEXCAN_RANGE = 2
+  FLEXCAN_RANGE = 2,
+  FLEXCAN_FIFO_TABLE_A_MULTI = 3,
+  FLEXCAN_FIFO_TABLE_A_RANGE = 4
 } FLEXCAN_FILTER_TABLE;
 
 typedef enum FLEXCAN_FIFOTABLE {
@@ -390,11 +393,6 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     bool setMBFilterRange(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t id2); /* filter a range of ids */
     int write(const CAN_message_t &msg); /* use any available mailbox for transmitting */
     int write(FLEXCAN_MAILBOX mb_num, const CAN_message_t &msg); /* use a single mailbox for transmitting */
-    uint64_t readIMASK() { return (((uint64_t)FLEXCANb_IMASK2(_bus) << 32) | FLEXCANb_IMASK1(_bus)); }
-    void flexcan_interrupt();
-    void flexcanFD_interrupt() { ; } // dummy placeholder to satisfy base class
-    Circular_Buffer<uint8_t, (uint32_t)_rxSize, sizeof(CAN_message_t)> rxBuffer;
-    Circular_Buffer<uint8_t, (uint32_t)_txSize, sizeof(CAN_message_t)> txBuffer;
     void events();
     void setRFFN(FLEXCAN_RFFN_TABLE rffn = RFFN_8); /* Number Of Rx FIFO Filters (0 == 8 filters, 1 == 16 filters, etc.. */
     void setRFFN(uint8_t rffn) { setRFFN((FLEXCAN_RFFN_TABLE)constrain(rffn, 0, 15)); }
@@ -406,15 +404,30 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     bool setFIFOFilter(uint8_t filter, uint32_t id1, const FLEXCAN_IDE &ide1, const FLEXCAN_IDE &remote1, uint32_t id2, const FLEXCAN_IDE &ide2, const FLEXCAN_IDE &remote2); /* TableB 2 ID / filter */
     bool setFIFOFilter(uint8_t filter, uint32_t id1, uint32_t id2, const FLEXCAN_IDE &ide1, const FLEXCAN_IDE &remote1, uint32_t id3, uint32_t id4, const FLEXCAN_IDE &ide2, const FLEXCAN_IDE &remote2); /* TableB 4 minimum ID / filter */
     bool setFIFOFilterRange(uint8_t filter, uint32_t id1, uint32_t id2, const FLEXCAN_IDE &ide1, const FLEXCAN_IDE &remote1, uint32_t id3, uint32_t id4, const FLEXCAN_IDE &ide2, const FLEXCAN_IDE &remote2); /* TableB dual range based IDs */
-    void writeTxMailbox(uint8_t mb_num, const CAN_message_t &msg);
     void struct2queueTx(const CAN_message_t &msg);
     void struct2queueRx(const CAN_message_t &msg);
     void setClock(FLEXCAN_CLOCK clock = CLK_24MHz);
+    void enhanceFilter(FLEXCAN_MAILBOX mb_num);
+    void distribute(bool state = 1) { distribution = state; }
+
+  private:
+    void writeTxMailbox(uint8_t mb_num, const CAN_message_t &msg);
+    uint64_t readIMASK() { return (((uint64_t)FLEXCANb_IMASK2(_bus) << 32) | FLEXCANb_IMASK1(_bus)); }
+    void flexcan_interrupt();
+    void flexcanFD_interrupt() { ; } // dummy placeholder to satisfy base class
+    Circular_Buffer<uint8_t, (uint32_t)_rxSize, sizeof(CAN_message_t)> rxBuffer;
+    Circular_Buffer<uint8_t, (uint32_t)_txSize, sizeof(CAN_message_t)> txBuffer;
     uint32_t getClock();
     void FLEXCAN_ExitFreezeMode();
     void FLEXCAN_EnterFreezeMode();
-  
-  private:
+    volatile uint32_t fifo_filter_table[32][6];
+    volatile uint32_t mb_filter_table[64][6];
+    volatile bool fifo_filter_match(uint32_t id);
+    volatile void frame_distribution(CAN_message_t &msg);
+    void filter_store(FLEXCAN_FILTER_TABLE type, FLEXCAN_MAILBOX mb_num, uint32_t id_count, uint32_t id1, uint32_t id2, uint32_t id3, uint32_t id4, uint32_t id5);
+    void fifo_filter_store(FLEXCAN_FILTER_TABLE type, uint8_t filter, uint32_t id_count, uint32_t id1, uint32_t id2, uint32_t id3, uint32_t id4, uint32_t id5);
+    volatile bool filter_match(FLEXCAN_MAILBOX mb_num, uint32_t id);
+    volatile bool distribution = 0;
     uint8_t getNumMailBoxes() { return FLEXCANb_MAXMB_SIZE(_bus); }
     uint8_t mailboxOffset();
     void softReset();
