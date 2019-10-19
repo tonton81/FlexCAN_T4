@@ -34,13 +34,21 @@
 void flexcan_isr_can3();
 void flexcan_isr_can2();
 void flexcan_isr_can1();
+void flexcan_isr_can0();
 
 FCTP_FUNC FCTP_OPT::FlexCAN_T4() {
+#if defined(__IMXRT1062__)
   if ( _bus == CAN3 ) _CAN3 = this;
   if ( _bus == CAN2 ) _CAN2 = this;
   if ( _bus == CAN1 ) _CAN1 = this;
+#endif
+#if defined(__MK20DX256__) || defined(__MK64FX512__) || defined(__MK66FX1M0__)
+  if ( _bus == CAN1 ) _CAN1 = this;
+  if ( _bus == CAN0 ) _CAN0 = this;
+#endif
 }
 
+#if defined(__IMXRT1062__)
 FCTP_FUNC void FCTP_OPT::setClock(FLEXCAN_CLOCK clock) {
   if ( clock == CLK_OFF ) CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(3) | CCM_CSCMR2_CAN_CLK_PODF(0);
   if ( clock == CLK_8MHz ) CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(2) | CCM_CSCMR2_CAN_CLK_PODF(9);
@@ -60,8 +68,10 @@ FCTP_FUNC uint32_t FCTP_OPT::getClock() {
   const uint8_t clocksrc[4] = {60, 24, 80, 0};
   return clocksrc[(CCM_CSCMR2 & 0x300) >> 8];
 }
+#endif
 
 FCTP_FUNC void FCTP_OPT::begin() {
+#if defined(__IMXRT1062__)
   if ( !getClock() ) setClock(CLK_24MHz); /* no clock enabled, enable osc clock */
 
   if ( _bus == CAN3 ) {
@@ -82,6 +92,42 @@ FCTP_FUNC void FCTP_OPT::begin() {
     CCM_CCGR0 |= 0x3C000;
     busNumber = 1;
   }
+#endif
+
+
+
+#if defined(__MK20DX256__)
+  if ( _bus == CAN0 ) {
+    nvicIrq = IRQ_CAN_MESSAGE;
+    _VectorsRam[16 + nvicIrq] = flexcan_isr_can0;
+    busNumber = 0;
+  }
+#endif
+
+#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+  if ( _bus == CAN0 ) {
+    nvicIrq = IRQ_CAN0_MESSAGE;
+    _VectorsRam[16 + nvicIrq] = flexcan_isr_can0;
+    busNumber = 0;
+  }
+#endif
+
+#if defined(__MK66FX1M0__)
+  else if ( _bus == CAN1 ) {
+    nvicIrq = IRQ_CAN1_MESSAGE;
+    _VectorsRam[16 + nvicIrq] = flexcan_isr_can1;
+    busNumber = 1;
+  }
+#endif
+
+#if defined(__MK20DX256__) || defined(__MK64FX512__) || defined(__MK66FX1M0__)
+  OSC0_CR |= OSC_ERCLKEN;
+  if ( _bus == CAN0 ) SIM_SCGC6 |= SIM_SCGC6_FLEXCAN0;
+#if defined(__MK66FX1M0__)
+  else if ( _bus == CAN1 ) SIM_SCGC3 |= SIM_SCGC3_FLEXCAN1;
+#endif
+  FLEXCANb_CTRL1(_bus) &= ~FLEXCAN_CTRL_CLK_SRC;
+#endif
 
   setTx(); setRx();
 
@@ -102,6 +148,7 @@ FCTP_FUNC void FCTP_OPT::begin() {
                                   FLEXCAN_CTRL2_MRP; // mailbox > FIFO priority.
   FLEXCANb_MCR(_bus) |= FLEXCAN_MCR_WRN_EN;
   FLEXCANb_MCR(_bus) |= FLEXCAN_MCR_WAK_MSK;
+
   disableFIFO(); /* clears all data and layout to legacy mailbox mode */
   FLEXCAN_ExitFreezeMode();
   NVIC_ENABLE_IRQ(nvicIrq);
@@ -300,8 +347,17 @@ FCTP_FUNC void FCTP_OPT::mailboxStatus() {
   } // for loop
 }
 
+FCTP_FUNC uint64_t FCTP_OPT::readIFLAG() {
+#if defined(__IMXRT1062__)
+  return (((uint64_t)FLEXCANb_IFLAG2(_bus) << 32) | FLEXCANb_IFLAG1(_bus));
+#endif
+  return FLEXCANb_IFLAG1(_bus);
+}
+
 FCTP_FUNC void FCTP_OPT::writeIFLAG(uint64_t value) {
+#if defined(__IMXRT1062__)
   FLEXCANb_IFLAG2(_bus) = value >> 32;
+#endif
   FLEXCANb_IFLAG1(_bus) = value;
 }
 
@@ -311,8 +367,17 @@ FCTP_FUNC void FCTP_OPT::writeIFLAGBit(uint8_t mb_num) {
 }
 
 FCTP_FUNC void FCTP_OPT::writeIMASK(uint64_t value) {
+#if defined(__IMXRT1062__)
   FLEXCANb_IMASK2(_bus) = value >> 32;
+#endif
   FLEXCANb_IMASK1(_bus) = value;
+}
+
+FCTP_FUNC uint64_t FCTP_OPT::readIMASK() {
+#if defined(__IMXRT1062__)
+  return (((uint64_t)FLEXCANb_IMASK2(_bus) << 32) | FLEXCANb_IMASK1(_bus));
+#endif
+  return FLEXCANb_IMASK1(_bus);
 }
 
 FCTP_FUNC void FCTP_OPT::writeIMASKBit(uint8_t mb_num, bool set) {
@@ -370,7 +435,13 @@ FCTP_FUNC void FCTP_OPT::FLEXCAN_EnterFreezeMode() {
 
 FCTP_FUNC void FCTP_OPT::setBaudRate(uint32_t baud) {
   currentBitrate = baud;
+
+#if defined(__IMXRT1062__)
   uint32_t clockFreq = getClock() * 1000000;
+#else
+  uint32_t clockFreq = 16000000;
+#endif
+
   uint32_t divisor = 0, bestDivisor = 0, result = clockFreq / baud / (divisor + 1);
   int error = baud - (clockFreq / (result * (divisor + 1))), bestError = error;
 
@@ -447,6 +518,7 @@ FCTP_FUNC void FCTP_OPT::setRRS(bool rrs) { /* store remote frames */
 }
 
 FCTP_FUNC void FCTP_OPT::setTx(FLEXCAN_PINS pin) {
+#if defined(__IMXRT1062__)
   if ( _bus == CAN3 ) {
     if ( pin == DEF ) {
       IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_36 = 0x19; // pin31 T3B2
@@ -465,25 +537,47 @@ FCTP_FUNC void FCTP_OPT::setTx(FLEXCAN_PINS pin) {
       IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_08 = 0x10B0; // pin 22 T4B1+B2
     }
   }
+#endif
+
+#if defined(__MK20DX256__)
+  CORE_PIN3_CONFIG = PORT_PCR_MUX(2);
+#endif
+#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+  if ( _bus == CAN0 ) {
+    if ( pin == ALT ) {
+      CORE_PIN3_CONFIG = 0; CORE_PIN29_CONFIG = PORT_PCR_MUX(2);
+    }
+    else if ( pin == DEF ) {
+      CORE_PIN29_CONFIG = 0; CORE_PIN3_CONFIG = PORT_PCR_MUX(2);
+    }
+  } /* Alternative CAN1 pins are not broken out on Teensy 3.6 */
+#endif
+#if defined(__MK66FX1M0__)
+  if ( _bus == CAN1 ) {
+    CORE_PIN33_CONFIG = PORT_PCR_MUX(2);
+  }
+#endif
+
 }
 
 FCTP_FUNC void FCTP_OPT::setRx(FLEXCAN_PINS pin) {
+#if defined(__IMXRT1062__)
   /* DAISY REGISTER CAN3
-    00 GPIO_EMC_37_ALT9 â€” Selecting Pad: GPIO_EMC_37 for Mode: ALT9
-    01 GPIO_AD_B0_15_ALT8 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
-    10 GPIO_AD_B0_11_ALT8 â€” Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
+    00 GPIO_EMC_37_ALT9 — Selecting Pad: GPIO_EMC_37 for Mode: ALT9
+    01 GPIO_AD_B0_15_ALT8 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
+    10 GPIO_AD_B0_11_ALT8 — Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
   */
   /* DAISY REGISTER CAN2
-    00 GPIO_EMC_10_ALT3 â€” Selecting Pad: GPIO_EMC_10 for Mode: ALT3
-    01 GPIO_AD_B0_03_ALT0 â€” Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
-    10 GPIO_AD_B0_15_ALT6 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
-    11 GPIO_B1_09_ALT6 â€” Selecting Pad: GPIO_B1_09 for Mode: ALT6
+    00 GPIO_EMC_10_ALT3 — Selecting Pad: GPIO_EMC_10 for Mode: ALT3
+    01 GPIO_AD_B0_03_ALT0 — Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
+    10 GPIO_AD_B0_15_ALT6 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
+    11 GPIO_B1_09_ALT6 — Selecting Pad: GPIO_B1_09 for Mode: ALT6
   */
   /* DAISY REGISTER CAN1
-    00 GPIO_SD_B1_03_ALT4 â€” Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
-    01 GPIO_EMC_18_ALT3 â€” Selecting Pad: GPIO_EMC_18 for Mode: ALT3
-    10 GPIO_AD_B1_09_ALT2 â€” Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
-    11 GPIO_B0_03_ALT2 â€” Selecting Pad: GPIO_B0_03 for Mode: ALT2
+    00 GPIO_SD_B1_03_ALT4 — Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
+    01 GPIO_EMC_18_ALT3 — Selecting Pad: GPIO_EMC_18 for Mode: ALT3
+    10 GPIO_AD_B1_09_ALT2 — Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
+    11 GPIO_B0_03_ALT2 — Selecting Pad: GPIO_B0_03 for Mode: ALT2
   */
   if ( _bus == CAN3 ) {
     if ( pin == DEF ) {
@@ -506,6 +600,27 @@ FCTP_FUNC void FCTP_OPT::setRx(FLEXCAN_PINS pin) {
       IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_09 = 0x10B0; // pin 23 T4B1+B2
     }
   }
+#endif
+
+#if defined(__MK20DX256__)
+  CORE_PIN4_CONFIG = PORT_PCR_MUX(2);
+#endif
+#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+  if ( _bus == CAN0 ) {
+    if ( pin == ALT ) {
+      CORE_PIN4_CONFIG = 0; CORE_PIN30_CONFIG = PORT_PCR_MUX(2);
+    }
+    else if ( pin == DEF ) {
+      CORE_PIN30_CONFIG = 0; CORE_PIN4_CONFIG = PORT_PCR_MUX(2);
+    }
+  } /* Alternative CAN1 pins are not broken out on Teensy 3.6 */
+#endif
+#if defined(__MK66FX1M0__)
+  if ( _bus == CAN1 ) {
+    CORE_PIN34_CONFIG = PORT_PCR_MUX(2);
+  }
+#endif
+
 }
 
 FCTP_FUNC void FCTP_OPT::setMBFilterProcessing(FLEXCAN_MAILBOX mb_num, uint32_t filter_id, uint32_t calculated_mask) {
@@ -637,19 +752,25 @@ FCTP_FUNC int FCTP_OPT::read(CAN_message_t &msg) {
 }
 
 FCTP_FUNC int FCTP_OPT::readMB(CAN_message_t &msg) {
+  uint64_t iflag = 0;
   for ( uint8_t cycle_limit = 3, mailboxes = mailboxOffset(); mailbox_reader_increment <= FLEXCANb_MAXMB_SIZE(_bus); ++mailbox_reader_increment ) {
+    iflag = readIFLAG();
+    if ( iflag && (mailbox_reader_increment >= (64 - __builtin_clzll(iflag))) ) { /* break from MSB's if unset, add 1 to prevent undefined behaviour in clz for 0 check */
+      mailbox_reader_increment = mailboxOffset();
+      if ( !--cycle_limit ) return 0;
+    }
     if ( FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FEN ) {  /* FIFO is enabled, get only remaining RX (if any) */
         if ( mailbox_reader_increment < mailboxes ) mailbox_reader_increment = mailboxes - 1; /* go back to position end of fifo+filter region */
     }
     if ( mailbox_reader_increment >= FLEXCANb_MAXMB_SIZE(_bus) ) {
-      mailbox_reader_increment = mailboxes - 1;
+      mailbox_reader_increment = mailboxOffset();
       if ( !--cycle_limit ) return 0;
     }
     volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(_bus + 0x80 + (mailbox_reader_increment * 0x10)));
     if ((readIMASK() & (1ULL << mailbox_reader_increment))) continue; /* don't read interrupt enabled mailboxes */
     uint32_t code = mbxAddr[0];
     if ( (FLEXCAN_get_code(code) >> 3) ) continue; /* skip TX mailboxes */
-    if (!(code & 0x600000) && !(readIFLAG() & (1ULL << mailbox_reader_increment))) continue; /* don't read unflagged mailboxes, errata: extended mailboxes iflags do not work in poll mode, must check CS field */
+    if (!(code & 0x600000) && !(iflag & (1ULL << mailbox_reader_increment))) continue; /* don't read unflagged mailboxes, errata: extended mailboxes iflags do not work in poll mode, must check CS field */
     if ( ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_FULL ) ||
          ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) ) {
       msg.flags.remote = (bool)(code & (1UL << 20));
@@ -733,6 +854,7 @@ FCTP_FUNC void FCTP_OPT::events() {
   }
 }
 
+#if defined(__IMXRT1062__)
 void flexcan_isr_can1() {
   if ( _CAN1 ) _CAN1->flexcan_interrupt();
 }
@@ -744,6 +866,16 @@ void flexcan_isr_can2() {
 void flexcan_isr_can3() {
   if ( _CAN3 ) _CAN3->flexcan_interrupt();
 }
+#endif
+#if defined(__MK20DX256__) || defined(__MK64FX512__) || defined(__MK66FX1M0__)
+void flexcan_isr_can0() {
+  if ( _CAN0 ) _CAN0->flexcan_interrupt();
+}
+void flexcan_isr_can1() {
+  if ( _CAN1 ) _CAN1->flexcan_interrupt();
+}
+#endif
+
 
 FCTP_FUNC void FCTP_OPT::mbCallbacks(const FLEXCAN_MAILBOX &mb_num, const CAN_message_t &msg) {
   if ( mb_num == FIFO ) {
@@ -785,8 +917,9 @@ FCTP_FUNC void FCTP_OPT::flexcan_interrupt() {
     if (fifo_filter_match(msg.id)) struct2queueRx(msg);
 
   }
-
+  uint8_t exit_point = 64 - __builtin_clzll(iflag | 1); /* break from MSB's if unset, add 1 to prevent undefined behaviour in clz for 0 check */
   for ( uint8_t mb_num = mailboxOffset(); mb_num < FLEXCANb_MAXMB_SIZE(_bus); mb_num++ ) {
+    if ( mb_num >= exit_point ) break; /* early exit from higher unflagged mailboxes */
     if (!(imask & (1ULL << mb_num))) continue; /* don't read non-interrupt mailboxes */
     if (!(iflag & (1ULL << mb_num))) continue; /* don't read unflagged mailboxes */
     volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(_bus + 0x80 + (mb_num * 0x10)));
@@ -808,8 +941,14 @@ FCTP_FUNC void FCTP_OPT::flexcan_interrupt() {
       frame_distribution(msg);
     }
   }
-
   FLEXCANb_ESR1(_bus) |= FLEXCANb_ESR1(_bus);
+}
+
+FCTP_FUNC void FCTP_OPT::enableDMA(bool state) { /* only CAN3 supports this on 1062, untested */
+  bool frz_flag_negate = !(FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FRZ_ACK);
+  FLEXCAN_EnterFreezeMode();
+  ( !state ) ? FLEXCANb_MCR(_bus) &= ~0x8000 : FLEXCANb_MCR(_bus) |= 0x8000;
+  if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
 }
 
 FCTP_FUNC void FCTP_OPT::setRFFN(FLEXCAN_RFFN_TABLE rffn) {

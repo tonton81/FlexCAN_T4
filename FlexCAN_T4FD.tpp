@@ -153,49 +153,19 @@ FCTPFD_FUNC uint8_t FCTPFD_OPT::setRegions(uint8_t mbdsr0, uint8_t mbdsr1) {
 }
 
 FCTPFD_FUNC uint32_t FCTPFD_OPT::mailbox_offset(uint8_t mailbox, uint8_t &maxsize) {
-  const uint8_t shifts[4] = {0x10, 0x18, 0x28, 0x48};
-  const uint8_t max_sizes[4] = {8, 16, 32, 64};
-  uint8_t block0 = (FLEXCANb_FDCTRL(_bus) & (3UL << 16)) >> 16;
-  uint8_t block1 = (FLEXCANb_FDCTRL(_bus) & (3UL << 19)) >> 19;
-  if ( block0 == 0 ) {
-    if ( mailbox <= 31 ) {
-      maxsize = max_sizes[block0];
-      return _bus + 0x80 + (shifts[block0] * mailbox);
-    }
-    else {
-      maxsize = max_sizes[block1];
-      return _bus + 0x280 + (shifts[block1] * (mailbox - 32));
-    }
+  const uint8_t data_size[4] = { 8, 16, 32, 64 };
+  const uint8_t mbx_total[4] = { 32, 21, 12, 7 };
+  const uint8_t mbx_shift[4] = {0x10, 0x18, 0x28, 0x48};
+  uint8_t region0 = (FLEXCANb_FDCTRL(_bus) & (3UL << 16)) >> 16;
+  uint8_t region1 = (FLEXCANb_FDCTRL(_bus) & (3UL << 19)) >> 19;
+
+  if ( mailbox < mbx_total[region0] ) {
+    maxsize = data_size[region0];
+    return _bus + 0x80 + (mbx_shift[region0] * mailbox);
   }
-  if ( block0 == 1 ) {
-    if ( mailbox <= 20 ) {
-      maxsize = max_sizes[block0];
-      return _bus + 0x80 + (shifts[block0] * mailbox);
-    }
-    else {
-      maxsize = max_sizes[block1];
-      return _bus + 0x280 + (shifts[block1] * (mailbox - 21));
-    }
-  }
-  if ( block0 == 2 ) {
-    if ( mailbox <= 11 ) {
-      maxsize = max_sizes[block0];
-      return _bus + 0x80 + (shifts[block0] * mailbox);
-    }
-    else {
-      maxsize = max_sizes[block1];
-      return _bus + 0x280 + (shifts[block1] * (mailbox - 12));
-    }
-  }
-  if ( block0 == 3 ) {
-    if ( mailbox <= 6 ) {
-      maxsize = max_sizes[block0];
-      return _bus + 0x80 + (shifts[block0] * mailbox);
-    }
-    else {
-      maxsize = max_sizes[block1];
-      return _bus + 0x280 + (shifts[block1] * (mailbox - 7));
-    }
+  else if ( mailbox < (mbx_total[region0] + mbx_total[region1]) ) {
+    maxsize = data_size[region1];
+    return _bus + 0x280 + (mbx_shift[region1] * (mailbox - mbx_total[region0]));
   }
   return _bus + 0x80;
 }
@@ -216,7 +186,7 @@ FCTPFD_FUNC uint8_t FCTPFD_OPT::max_mailboxes() {
   const uint8_t sizes[4] = {32, 21, 12, 7};
   mb_count = sizes[block0] + sizes[block1];
 
-  if ( mb_count > ((FLEXCANb_MCR(_bus) & 0x3F) + 1) ) return ((FLEXCANb_MCR(_bus) & 0x3F) + 1);
+  if ( mb_count > FLEXCANb_MAXMB_SIZE(_bus) ) return FLEXCANb_MAXMB_SIZE(_bus);
   return mb_count;
 }
 
@@ -326,21 +296,21 @@ FCTPFD_FUNC void FCTPFD_OPT::setTx(FLEXCAN_PINS pin) {
 
 FCTPFD_FUNC void FCTPFD_OPT::setRx(FLEXCAN_PINS pin) {
   /* DAISY REGISTER CAN3
-    00 GPIO_EMC_37_ALT9 â€” Selecting Pad: GPIO_EMC_37 for Mode: ALT9
-    01 GPIO_AD_B0_15_ALT8 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
-    10 GPIO_AD_B0_11_ALT8 â€” Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
+    00 GPIO_EMC_37_ALT9 — Selecting Pad: GPIO_EMC_37 for Mode: ALT9
+    01 GPIO_AD_B0_15_ALT8 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
+    10 GPIO_AD_B0_11_ALT8 — Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
   */
   /* DAISY REGISTER CAN2
-    00 GPIO_EMC_10_ALT3 â€” Selecting Pad: GPIO_EMC_10 for Mode: ALT3
-    01 GPIO_AD_B0_03_ALT0 â€” Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
-    10 GPIO_AD_B0_15_ALT6 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
-    11 GPIO_B1_09_ALT6 â€” Selecting Pad: GPIO_B1_09 for Mode: ALT6
+    00 GPIO_EMC_10_ALT3 — Selecting Pad: GPIO_EMC_10 for Mode: ALT3
+    01 GPIO_AD_B0_03_ALT0 — Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
+    10 GPIO_AD_B0_15_ALT6 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
+    11 GPIO_B1_09_ALT6 — Selecting Pad: GPIO_B1_09 for Mode: ALT6
   */
   /* DAISY REGISTER CAN1
-    00 GPIO_SD_B1_03_ALT4 â€” Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
-    01 GPIO_EMC_18_ALT3 â€” Selecting Pad: GPIO_EMC_18 for Mode: ALT3
-    10 GPIO_AD_B1_09_ALT2 â€” Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
-    11 GPIO_B0_03_ALT2 â€” Selecting Pad: GPIO_B0_03 for Mode: ALT2
+    00 GPIO_SD_B1_03_ALT4 — Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
+    01 GPIO_EMC_18_ALT3 — Selecting Pad: GPIO_EMC_18 for Mode: ALT3
+    10 GPIO_AD_B1_09_ALT2 — Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
+    11 GPIO_B0_03_ALT2 — Selecting Pad: GPIO_B0_03 for Mode: ALT2
   */
   if ( _bus == CAN3 ) {
     if ( pin == DEF ) {
@@ -363,6 +333,13 @@ FCTPFD_FUNC void FCTPFD_OPT::setRx(FLEXCAN_PINS pin) {
       IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_09 = 0x10B0; // pin 23 T4B1+B2
     }
   }
+}
+
+FCTPFD_FUNC void FCTPFD_OPT::enableDMA(bool state) { /* only CAN3 supports this on 1062, untested */
+  bool frz_flag_negate = !(FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FRZ_ACK);
+  FLEXCAN_EnterFreezeMode();
+  ( !state ) ? FLEXCANb_MCR(_bus) &= ~0x8000 : FLEXCANb_MCR(_bus) |= 0x8000;
+  if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
 }
 
 FCTPFD_FUNC void FCTPFD_OPT::writeIFLAG(uint64_t value) {
@@ -428,6 +405,9 @@ FCTPFD_FUNC void FCTPFD_OPT::flexcan_interrupt() {
     if ( ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_FULL ) ||
          ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) ) {
       msg.flags.extended = (bool)(code & (1UL << 21));
+      msg.edl = (bool)(code & (1UL << 31));
+      msg.brs = (bool)(code & (1UL << 30));
+      msg.esi = (bool)(code & (1UL << 29));
       msg.id = (mbxAddr[1] & 0x1FFFFFFF) >> ((msg.flags.extended) ? 0 : 18);
       if ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) msg.flags.overrun = 1;
       msg.len = dlc_to_len((code & 0xF0000) >> 16);
@@ -509,7 +489,10 @@ FCTPFD_FUNC int FCTPFD_OPT::readMB(CANFD_message_t &msg) {
     if (!(code & 0x600000) && !(readIFLAG() & (1ULL << mailbox_reader_increment))) continue; /* don't read unflagged mailboxes, errata: extended mailboxes iflags do not work in poll mode, must check CS field */
     if ( ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_FULL ) ||
          ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) ) {
-      msg.flags.extended = code & (1UL << 21);
+      msg.flags.extended = (bool)(code & (1UL << 21));
+      msg.edl = (bool)(code & (1UL << 31));
+      msg.brs = (bool)(code & (1UL << 30));
+      msg.esi = (bool)(code & (1UL << 29));
       msg.id = (mbxAddr[1] & 0x1FFFFFFF) >> ((msg.flags.extended) ? 0 : 18);
       if ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) msg.flags.overrun = 1;
       msg.len = dlc_to_len((code & 0xF0000) >> 16);
