@@ -171,7 +171,6 @@ FCTP_FUNC void FCTP_OPT::enableFIFO(bool status) {
 
   if ( status ) {
     FLEXCANb_MCR(_bus) |= FLEXCAN_MCR_FEN;
-    FLEXCAN_set_rffn(FLEXCANb_CTRL2(_bus), 0); // setup 8 Filters for FIFO, 0-5 = FIFO, 6-7 FILTERS, 8-64 MBs, max value 0xF which leaves MB14/15 free to use.
     for (uint8_t i = mailboxOffset(); i < FLEXCANb_MAXMB_SIZE(_bus); i++) FLEXCANb_MBn_CS(_bus,i) = FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_TX_INACTIVE);
   } 
   else { // FIFO disabled default setup of mailboxes, 0-7 RX, 8-15 TX
@@ -954,7 +953,7 @@ FCTP_FUNC void FCTP_OPT::enableDMA(bool state) { /* only CAN3 supports this on 1
 FCTP_FUNC void FCTP_OPT::setRFFN(FLEXCAN_RFFN_TABLE rffn) {
   bool frz_flag_negate = !(FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FRZ_ACK);
   FLEXCAN_EnterFreezeMode();
-  FLEXCAN_set_rffn(FLEXCANb_CTRL2(_bus), rffn); 
+  FLEXCAN_set_rffn(FLEXCANb_CTRL2(_bus), rffn);
   if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
 }
 
@@ -969,15 +968,13 @@ FCTP_FUNC void FCTP_OPT::setFIFOFilter(const FLEXCAN_FLTEN &input) {
         FLEXCANb_IDFLT_TAB(_bus, i) = 0xFFFFFFFF; /* reset id */
         /* individual masks (RXIMR) will just cover Rx FIFO filters in 0-31 range, and filters 32-127
            will use RXFGMASK. */ 
-        if ( i < 32 ) FLEXCANb_RXIMR(_bus, i) = 0x3FFFFFFF; // (RXIMR) /* block all id's (0-31) */
-        else {
-          FLEXCANb_RXFGMASK(_bus) = 0x3FFFFFFF;
-        }
+        if ( i < constrain(mailboxOffset(), 0, 32) ) FLEXCANb_RXIMR(_bus, i) = 0x3FFFFFFF; // (RXIMR) /* block all id's (0-31) */
+        FLEXCANb_RXFGMASK(_bus) = 0x3FFFFFFF;
       }
       else if ( ((FLEXCANb_MCR(_bus) & FLEXCAN_MCR_IDAM_MASK) >> FLEXCAN_MCR_IDAM_BIT_NO) == 1 ) { /* If Table B is chosen for FIFO */
         FLEXCANb_IDFLT_TAB(_bus, i) = 0xFFFFFFFF; /* reset id */
-        if ( i < 32 ) FLEXCANb_RXIMR(_bus, i) = 0x7FFF7FFF; // (RXIMR) /* block all id's (0-31) */
-        else FLEXCANb_RXFGMASK(_bus) = 0x7FFF7FFF;
+        if ( i < constrain(mailboxOffset(), 0, 32) ) FLEXCANb_RXIMR(_bus, i) = 0x7FFF7FFF; // (RXIMR) /* block all id's (0-31) */
+        FLEXCANb_RXFGMASK(_bus) = 0x7FFF7FFF;
       }
       else if ( ((FLEXCANb_MCR(_bus) & FLEXCAN_MCR_IDAM_MASK) >> FLEXCAN_MCR_IDAM_BIT_NO) == 2 ) { /* If Table C is chosen for FIFO */
        /* TO BE DONE */ //FLEXCANb_IDFLT_TAB(_bus, i) = 0x6E6E6E6E; /* reset id */
@@ -986,8 +983,8 @@ FCTP_FUNC void FCTP_OPT::setFIFOFilter(const FLEXCAN_FLTEN &input) {
     }
     else if ( input == ACCEPT_ALL ) {
       FLEXCANb_IDFLT_TAB(_bus, i) = 0; /* reset id */
-      if ( i < 32 ) FLEXCANb_RXIMR(_bus, i) = 0; // (RXIMR) /* allow all id's */
-      else FLEXCANb_RXFGMASK(_bus) = 0; /* for masks above IDF 0->31, global is used for rest) */
+      if ( i < constrain(mailboxOffset(), 0, 32) ) FLEXCANb_RXIMR(_bus, i) = 0; // (RXIMR) /* allow all id's */
+      FLEXCANb_RXFGMASK(_bus) = 0; /* for masks above IDF 0->31, global is used for rest) */
     }
   }
   if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
@@ -1004,8 +1001,8 @@ FCTP_FUNC bool FCTP_OPT::setFIFOFilter(uint8_t filter, uint32_t id1, const FLEXC
     uint32_t mask = ( ide != EXT ) ? ((((id1) ^ (id1)) ^ 0x7FF) << 19 ) | 0xC0000001 : ((((id1) ^ (id1)) ^ 0x1FFFFFFF) << 1 ) | 0xC0000001;
     FLEXCANb_IDFLT_TAB(_bus, filter) = ((ide == EXT ? 1 : 0) << 30) | ((remote == RTR ? 1 : 0) << 31) |
         ((ide == EXT ? ((id1 & FLEXCAN_MB_ID_EXT_MASK) << 1) : (FLEXCAN_MB_ID_IDSTD(id1) << 1)));
-    if ( filter < 32 ) FLEXCANb_RXIMR(_bus, filter) = mask;// | ((filter < (max_fifo_filters / 2)) ? 0 : (1UL << 30)); // (RXIMR)
-    else FLEXCANb_RXFGMASK(_bus) = 0x3FFFFFFF; /* enforce it for blocks 32->127, single IDs */
+    if ( filter < constrain(mailboxOffset(), 0, 32) ) FLEXCANb_RXIMR(_bus, filter) = mask;// | ((filter < (max_fifo_filters / 2)) ? 0 : (1UL << 30)); // (RXIMR)
+    FLEXCANb_RXFGMASK(_bus) = 0x3FFFFFFF; /* enforce it for blocks 32->127, single IDs */
 
     fifo_filter_table[filter][0] = ( ((ide == EXT) ? 1UL : 0UL) << 16); /* extended flag check */
     fifo_filter_store(FLEXCAN_MULTI, filter, 1, id1, 0, 0, 0, 0);
@@ -1020,8 +1017,8 @@ FCTP_FUNC bool FCTP_OPT::setFIFOFilter(uint8_t filter, uint32_t id1, const FLEXC
     uint32_t mask = ( ide != EXT ) ? ((((id1) ^ (id1)) ^ 0x7FF) << 19 ) | ((remote == RTR)?(1UL<<31):0UL) : ((((id1) ^ (id1)) ^ 0x1FFFFFFF) << 16 ) | ((remote == RTR)?(1UL<<31):0UL);
     mask |= (( ide != EXT ) ? ((((id1) ^ (id1)) ^ 0x7FF) << 3 )  | ((remote == RTR)?(1UL<<15):0UL) : ((((id1) ^ (id1)) ^ 0x1FFFFFFF) << 0 )  | ((remote == RTR)?(1UL<<15):0UL) ) & 0xFFFF;
     mask |= (1UL<<30) | (1UL<<14);
-    if ( filter < 32 ) FLEXCANb_RXIMR(_bus, filter) = mask; // (RXIMR)
-    else FLEXCANb_RXFGMASK(_bus) = 0x7FFF7FFF; /* enforce it for blocks 32->127, single STD IDs / EXT partial matches */
+    if ( filter < constrain(mailboxOffset(), 0, 32) ) FLEXCANb_RXIMR(_bus, filter) = mask; // (RXIMR)
+    FLEXCANb_RXFGMASK(_bus) = 0x7FFF7FFF; /* enforce it for blocks 32->127, single STD IDs / EXT partial matches */
   }
 
   /* #################################################################################### */
