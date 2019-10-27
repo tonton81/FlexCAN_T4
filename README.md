@@ -1,6 +1,8 @@
 # FlexCAN_T4
 FlexCAN Library for Teensy 4
 
+https://forum.pjrc.com/threads/56035-FlexCAN_T4-FlexCAN-for-Teensy-4
+
 
 Currently in early stages, designed for Teensy 4.
 Based on a redesigned model of IFCT from the ground up.
