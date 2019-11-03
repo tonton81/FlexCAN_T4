@@ -31,8 +31,6 @@
 #include "imxrt_flexcan.h"
 #include "Arduino.h"
 
-FCTPFD_FUNC uint32_t FCTPFD_OPT::mb_filter_table[64][7] = {{ 0 }, { 0 }};
-
 void flexcan_isr_can3fd();
 
 FCTPFD_FUNC FCTPFD_OPT::FlexCAN_T4FD() {
@@ -155,7 +153,7 @@ FCTPFD_FUNC uint8_t FCTPFD_OPT::setRegions(uint8_t mbdsr0, uint8_t mbdsr1) {
 FCTPFD_FUNC uint32_t FCTPFD_OPT::mailbox_offset(uint8_t mailbox, uint8_t &maxsize) {
   const uint8_t data_size[4] = { 8, 16, 32, 64 };
   const uint8_t mbx_total[4] = { 32, 21, 12, 7 };
-  const uint8_t mbx_shift[4] = {0x10, 0x18, 0x28, 0x48};
+  const uint8_t mbx_shift[4] = { 0x10, 0x18, 0x28, 0x48 };
   uint8_t region0 = (FLEXCANb_FDCTRL(_bus) & (3UL << 16)) >> 16;
   uint8_t region1 = (FLEXCANb_FDCTRL(_bus) & (3UL << 19)) >> 19;
 
@@ -176,6 +174,12 @@ FCTPFD_FUNC int FCTPFD_OPT::getFirstTxBox() {
     if ( (FLEXCAN_get_code(mbxAddr[0]) >> 3) ) return i; // if TX
   }
   return -1;
+}
+
+FCTPFD_FUNC uint8_t FCTPFD_OPT::getFirstTxBoxSize() {
+  uint8_t mbsize = 0;
+  mailbox_offset(getFirstTxBox(), mbsize);
+  return mbsize;
 }
 
 FCTPFD_FUNC uint8_t FCTPFD_OPT::max_mailboxes() {
@@ -296,21 +300,21 @@ FCTPFD_FUNC void FCTPFD_OPT::setTx(FLEXCAN_PINS pin) {
 
 FCTPFD_FUNC void FCTPFD_OPT::setRx(FLEXCAN_PINS pin) {
   /* DAISY REGISTER CAN3
-    00 GPIO_EMC_37_ALT9 — Selecting Pad: GPIO_EMC_37 for Mode: ALT9
-    01 GPIO_AD_B0_15_ALT8 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
-    10 GPIO_AD_B0_11_ALT8 — Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
+    00 GPIO_EMC_37_ALT9 â€” Selecting Pad: GPIO_EMC_37 for Mode: ALT9
+    01 GPIO_AD_B0_15_ALT8 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
+    10 GPIO_AD_B0_11_ALT8 â€” Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
   */
   /* DAISY REGISTER CAN2
-    00 GPIO_EMC_10_ALT3 — Selecting Pad: GPIO_EMC_10 for Mode: ALT3
-    01 GPIO_AD_B0_03_ALT0 — Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
-    10 GPIO_AD_B0_15_ALT6 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
-    11 GPIO_B1_09_ALT6 — Selecting Pad: GPIO_B1_09 for Mode: ALT6
+    00 GPIO_EMC_10_ALT3 â€” Selecting Pad: GPIO_EMC_10 for Mode: ALT3
+    01 GPIO_AD_B0_03_ALT0 â€” Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
+    10 GPIO_AD_B0_15_ALT6 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
+    11 GPIO_B1_09_ALT6 â€” Selecting Pad: GPIO_B1_09 for Mode: ALT6
   */
   /* DAISY REGISTER CAN1
-    00 GPIO_SD_B1_03_ALT4 — Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
-    01 GPIO_EMC_18_ALT3 — Selecting Pad: GPIO_EMC_18 for Mode: ALT3
-    10 GPIO_AD_B1_09_ALT2 — Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
-    11 GPIO_B0_03_ALT2 — Selecting Pad: GPIO_B0_03 for Mode: ALT2
+    00 GPIO_SD_B1_03_ALT4 â€” Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
+    01 GPIO_EMC_18_ALT3 â€” Selecting Pad: GPIO_EMC_18 for Mode: ALT3
+    10 GPIO_AD_B1_09_ALT2 â€” Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
+    11 GPIO_B0_03_ALT2 â€” Selecting Pad: GPIO_B0_03 for Mode: ALT2
   */
   if ( _bus == CAN3 ) {
     if ( pin == DEF ) {
@@ -364,6 +368,16 @@ FCTPFD_FUNC void FCTPFD_OPT::writeIMASKBit(uint8_t mb_num, bool set) {
 
 void flexcan_isr_can3fd() {
   if ( _CAN3 ) _CAN3->flexcan_interrupt();
+}
+
+FCTPFD_FUNC void FCTPFD_OPT::enableMBInterrupts(bool status) {
+  FLEXCAN_EnterFreezeMode();
+  for ( uint8_t mb_num = 0, mbsize = 0; mb_num < max_mailboxes(); mb_num++ ) {
+    volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(mailbox_offset(mb_num, mbsize)));
+    if ( (FLEXCAN_get_code(mbxAddr[0]) >> 3) ) continue; // skip TX mailboxes
+    enableMBInterrupt((FLEXCAN_MAILBOX)mb_num, status);
+  }
+  FLEXCAN_ExitFreezeMode();
 }
 
 FCTPFD_FUNC void FCTPFD_OPT::enableMBInterrupt(const FLEXCAN_MAILBOX &mb_num, bool status) {
@@ -420,6 +434,9 @@ FCTPFD_FUNC void FCTPFD_OPT::flexcan_interrupt() {
       writeIFLAGBit(mb_num);
       if ( filter_match((FLEXCAN_MAILBOX)mb_num, msg.id) ) struct2queueRx(msg); /* store frame in queue */
       frame_distribution(msg);
+      ext_outputFD1(msg);
+      ext_outputFD2(msg);
+      ext_outputFD3(msg);
     }
   }
   FLEXCANb_ESR1(_bus) = FLEXCANb_ESR1(_bus);
@@ -486,7 +503,7 @@ FCTPFD_FUNC int FCTPFD_OPT::readMB(CANFD_message_t &msg) {
     if ((readIMASK() & (1ULL << mailbox_reader_increment))) continue; /* don't read interrupt enabled mailboxes */
     uint32_t code = mbxAddr[0];
     if ( (FLEXCAN_get_code(code) >> 3) ) continue; /* skip TX mailboxes */
-    if (!(code & 0x600000) && !(readIFLAG() & (1ULL << mailbox_reader_increment))) continue; /* don't read unflagged mailboxes, errata: extended mailboxes iflags do not work in poll mode, must check CS field */
+    // if (!(code & 0x600000) && !(readIFLAG() & (1ULL << mailbox_reader_increment))) continue; /* don't read unflagged mailboxes, errata: extended mailboxes iflags do not work in poll mode, must check CS field */
     if ( ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_FULL ) ||
          ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) ) {
       msg.flags.extended = (bool)(code & (1UL << 21));
@@ -770,3 +787,7 @@ FCTPFD_FUNC void FCTPFD_OPT::mailboxStatus() {
     }
   } // for loop
 }
+
+extern void __attribute__((weak)) ext_outputFD1(const CANFD_message_t &msg);
+extern void __attribute__((weak)) ext_outputFD2(const CANFD_message_t &msg);
+extern void __attribute__((weak)) ext_outputFD3(const CANFD_message_t &msg);
