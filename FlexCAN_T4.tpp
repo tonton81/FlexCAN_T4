@@ -195,6 +195,15 @@ FCTP_FUNC void FCTP_OPT::enableFIFOInterrupt(bool status) {
   if ( status ) FLEXCANb_IMASK1(_bus) |= FLEXCAN_IMASK1_BUF5M; /* enable FIFO interrupt */
 }
 
+FCTP_FUNC void FCTP_OPT::enableMBInterrupts(bool status) {
+  FLEXCAN_EnterFreezeMode();
+  for ( uint8_t mb_num = mailboxOffset(); mb_num < FLEXCANb_MAXMB_SIZE(_bus); mb_num++ ) {
+    if ( (FLEXCAN_get_code(FLEXCANb_MBn_CS(_bus, mb_num)) >> 3) ) continue; // skip TX mailboxes
+    enableMBInterrupt((FLEXCAN_MAILBOX)mb_num, status);
+  }
+  FLEXCAN_ExitFreezeMode();
+}
+
 FCTP_FUNC void FCTP_OPT::enableMBInterrupt(const FLEXCAN_MAILBOX &mb_num, bool status) {
   if ( mb_num < mailboxOffset() ) return; /* mailbox not available */
   if ( status ) writeIMASKBit(mb_num); /* enable mailbox interrupt */
