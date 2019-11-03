@@ -413,6 +413,8 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     bool setMB(const FLEXCAN_MAILBOX &mb_num, const FLEXCAN_RXTX &mb_rx_tx, const FLEXCAN_IDE &ide = STD);
     void enableMBInterrupt(const FLEXCAN_MAILBOX &mb_num, bool status = 1);
     void disableMBInterrupt(const FLEXCAN_MAILBOX &mb_num) { enableMBInterrupt(mb_num, 0); }
+    void enableMBInterrupts(bool status = 1);
+    void disableMBInterrupts() { enableMBInterrupts(0); }
     void setMRP(bool mrp = 1); /* mailbox(1)/fifo(0) priority */
     void setRRS(bool rrs = 1); /* store remote frames */
     void onReceive(const FLEXCAN_MAILBOX &mb_num, _MB_ptr handler); /* individual mailbox callback function */
