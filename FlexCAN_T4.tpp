@@ -229,9 +229,10 @@ FCTP_FUNC void FCTP_OPT::mailboxStatus() {
   if ( FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FEN ) {
     Serial.print("FIFO Enabled --> "); ( FLEXCANb_IMASK1(_bus) & FLEXCAN_IFLAG1_BUF5I ) ? Serial.println("Interrupt Enabled") : Serial.println("Interrupt Disabled");
     Serial.print("\tFIFO Filters in use: ");
-    Serial.println((((FLEXCANb_CTRL2(_bus) >> FLEXCAN_CTRL2_RFFN_BIT_NO) & 0xF) + 1) * 8); // 8 filters per 2 mailboxes
-    Serial.print("\tRemaining Mailboxes: ");
     uint32_t remaining_mailboxes = FLEXCANb_MAXMB_SIZE(_bus) - 6 /* MAXMB - FIFO */ - ((((FLEXCANb_CTRL2(_bus) >> FLEXCAN_CTRL2_RFFN_BIT_NO) & 0xF) + 1) * 2);
+    if ( FLEXCANb_MAXMB_SIZE(_bus) < (6 + ((((FLEXCANb_CTRL2(_bus) >> FLEXCAN_CTRL2_RFFN_BIT_NO) & 0xF) + 1) * 2))) remaining_mailboxes = 0;
+    Serial.println(constrain((uint8_t)(FLEXCANb_MAXMB_SIZE(_bus) - remaining_mailboxes), 0, 32));
+    Serial.print("\tRemaining Mailboxes: ");
     if ( FLEXCANb_MAXMB_SIZE(_bus) < (6 + ((((FLEXCANb_CTRL2(_bus) >> FLEXCAN_CTRL2_RFFN_BIT_NO) & 0xF) + 1) * 2))) remaining_mailboxes = 0;
     Serial.println(remaining_mailboxes); // 8 filters per 2 mailboxes
     for ( uint8_t i = FLEXCANb_MAXMB_SIZE(_bus) - remaining_mailboxes; i < FLEXCANb_MAXMB_SIZE(_bus); i++ ) {
@@ -562,21 +563,21 @@ FCTP_FUNC void FCTP_OPT::setTx(FLEXCAN_PINS pin) {
 FCTP_FUNC void FCTP_OPT::setRx(FLEXCAN_PINS pin) {
 #if defined(__IMXRT1062__)
   /* DAISY REGISTER CAN3
-    00 GPIO_EMC_37_ALT9 — Selecting Pad: GPIO_EMC_37 for Mode: ALT9
-    01 GPIO_AD_B0_15_ALT8 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
-    10 GPIO_AD_B0_11_ALT8 — Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
+    00 GPIO_EMC_37_ALT9 â€” Selecting Pad: GPIO_EMC_37 for Mode: ALT9
+    01 GPIO_AD_B0_15_ALT8 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
+    10 GPIO_AD_B0_11_ALT8 â€” Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
   */
   /* DAISY REGISTER CAN2
-    00 GPIO_EMC_10_ALT3 — Selecting Pad: GPIO_EMC_10 for Mode: ALT3
-    01 GPIO_AD_B0_03_ALT0 — Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
-    10 GPIO_AD_B0_15_ALT6 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
-    11 GPIO_B1_09_ALT6 — Selecting Pad: GPIO_B1_09 for Mode: ALT6
+    00 GPIO_EMC_10_ALT3 â€” Selecting Pad: GPIO_EMC_10 for Mode: ALT3
+    01 GPIO_AD_B0_03_ALT0 â€” Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
+    10 GPIO_AD_B0_15_ALT6 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
+    11 GPIO_B1_09_ALT6 â€” Selecting Pad: GPIO_B1_09 for Mode: ALT6
   */
   /* DAISY REGISTER CAN1
-    00 GPIO_SD_B1_03_ALT4 — Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
-    01 GPIO_EMC_18_ALT3 — Selecting Pad: GPIO_EMC_18 for Mode: ALT3
-    10 GPIO_AD_B1_09_ALT2 — Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
-    11 GPIO_B0_03_ALT2 — Selecting Pad: GPIO_B0_03 for Mode: ALT2
+    00 GPIO_SD_B1_03_ALT4 â€” Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
+    01 GPIO_EMC_18_ALT3 â€” Selecting Pad: GPIO_EMC_18 for Mode: ALT3
+    10 GPIO_AD_B1_09_ALT2 â€” Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
+    11 GPIO_B0_03_ALT2 â€” Selecting Pad: GPIO_B0_03 for Mode: ALT2
   */
   if ( _bus == CAN3 ) {
     if ( pin == DEF ) {
@@ -769,7 +770,7 @@ FCTP_FUNC int FCTP_OPT::readMB(CAN_message_t &msg) {
     if ((readIMASK() & (1ULL << mailbox_reader_increment))) continue; /* don't read interrupt enabled mailboxes */
     uint32_t code = mbxAddr[0];
     if ( (FLEXCAN_get_code(code) >> 3) ) continue; /* skip TX mailboxes */
-    if (!(code & 0x600000) && !(iflag & (1ULL << mailbox_reader_increment))) continue; /* don't read unflagged mailboxes, errata: extended mailboxes iflags do not work in poll mode, must check CS field */
+    //if (!(code & 0x600000) && !(iflag & (1ULL << mailbox_reader_increment))) continue; /* don't read unflagged mailboxes, errata: extended mailboxes iflags do not work in poll mode, must check CS field */
     if ( ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_FULL ) ||
          ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) ) {
       msg.flags.remote = (bool)(code & (1UL << 20));
@@ -913,6 +914,9 @@ FCTP_FUNC void FCTP_OPT::flexcan_interrupt() {
     if ( iflag & FLEXCAN_IFLAG1_BUF6I ) writeIFLAGBit(6); /* clear FIFO bit only! */
     if ( iflag & FLEXCAN_IFLAG1_BUF7I ) writeIFLAGBit(7); /* clear FIFO bit only! */
     frame_distribution(msg);
+    ext_output1(msg);
+    ext_output2(msg);
+    ext_output3(msg);
     if (fifo_filter_match(msg.id)) struct2queueRx(msg);
 
   }
@@ -938,6 +942,9 @@ FCTP_FUNC void FCTP_OPT::flexcan_interrupt() {
       writeIFLAGBit(mb_num);
       if ( filter_match((FLEXCAN_MAILBOX)mb_num, msg.id) ) struct2queueRx(msg); /* store frame in queue */
       frame_distribution(msg);
+      ext_output1(msg);
+      ext_output2(msg);
+      ext_output3(msg);
     }
   }
   FLEXCANb_ESR1(_bus) |= FLEXCANb_ESR1(_bus);
@@ -950,11 +957,14 @@ FCTP_FUNC void FCTP_OPT::enableDMA(bool state) { /* only CAN3 supports this on 1
   if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
 }
 
-FCTP_FUNC void FCTP_OPT::setRFFN(FLEXCAN_RFFN_TABLE rffn) {
+FCTP_FUNC uint8_t FCTP_OPT::setRFFN(FLEXCAN_RFFN_TABLE rffn) {
   bool frz_flag_negate = !(FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FRZ_ACK);
   FLEXCAN_EnterFreezeMode();
   FLEXCAN_set_rffn(FLEXCANb_CTRL2(_bus), rffn);
   if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
+  uint32_t remaining_mailboxes = FLEXCANb_MAXMB_SIZE(_bus) - 6 /* MAXMB - FIFO */ - ((((FLEXCANb_CTRL2(_bus) >> FLEXCAN_CTRL2_RFFN_BIT_NO) & 0xF) + 1) * 2);
+  if ( FLEXCANb_MAXMB_SIZE(_bus) < (6 + ((((FLEXCANb_CTRL2(_bus) >> FLEXCAN_CTRL2_RFFN_BIT_NO) & 0xF) + 1) * 2))) remaining_mailboxes = 0;
+  return constrain((uint8_t)(FLEXCANb_MAXMB_SIZE(_bus) - remaining_mailboxes), 0, 32);
 }
 
 FCTP_FUNC void FCTP_OPT::setFIFOFilter(const FLEXCAN_FLTEN &input) {
@@ -1284,3 +1294,7 @@ FCTP_FUNC volatile void FCTP_OPT::frame_distribution(CAN_message_t &msg) {
   } /* end of mb scan */
 
 }
+
+extern void __attribute__((weak)) ext_output1(const CAN_message_t &msg);
+extern void __attribute__((weak)) ext_output2(const CAN_message_t &msg);
+extern void __attribute__((weak)) ext_output3(const CAN_message_t &msg);
