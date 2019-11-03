@@ -306,6 +306,10 @@ extern void ext_outputFD1(const CANFD_message_t &msg); // Interrupt data output,
 extern void ext_outputFD2(const CANFD_message_t &msg);
 extern void ext_outputFD3(const CANFD_message_t &msg);
 
+extern void ext_output1(const CAN_message_t &msg); // Interrupt data output, not filtered, for external libraries
+extern void ext_output2(const CAN_message_t &msg);
+extern void ext_output3(const CAN_message_t &msg);
+
 FCTPFD_CLASS class FlexCAN_T4FD : public FlexCAN_T4_Base {
   public:
     FlexCAN_T4FD();
