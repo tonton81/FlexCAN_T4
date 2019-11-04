@@ -6,12 +6,16 @@ void setup(void) {
   Serial.begin(115200); delay(500);
   pinMode(6, OUTPUT); digitalWrite(6, LOW);
   FD.begin();
+  CANFD_timings_t config;
+  config.clock = CLK_24MHz;
+  config.baudrate = 1000000;
+  config.baudrateFD = 2000000;
+  config.propdelay = 190;
+  config.bus_length = 1;
+  config.sample = 87.5;
   FD.setRegions(64);
-  //    FD.setMB(MB6, RX);
-  //    FD.setMB(MB11, RX);
-  //    FD.setMB(MB22, RX);
-  //    FD.setMB(MB31, RX);
-  //      FD.setMB(MB45, TX);
+  FD.setBaudRate(config);
+  FD.mailboxStatus();
 }
 
 void loop() {
