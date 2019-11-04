@@ -154,7 +154,8 @@ typedef enum FLEXCAN_RXTX {
 typedef enum FLEXCAN_FDRATES {
   CAN_1M_2M,
   CAN_1M_4M,
-  CAN_1M_6M
+  CAN_1M_6M,
+  CAN_1M_8M
 } FLEXCAN_FDRATES;
 
 typedef enum FLEXCAN_CLOCK {
@@ -327,8 +328,9 @@ FCTPFD_CLASS class FlexCAN_T4FD : public FlexCAN_T4_Base {
     bool setMB(const FLEXCAN_MAILBOX &mb_num, const FLEXCAN_RXTX &mb_rx_tx, const FLEXCAN_IDE &ide = STD);
     uint8_t setRegions(uint8_t size); /* 8, 16, 32 or 64 bytes */
     uint8_t setRegions(uint8_t mbdsr0, uint8_t mbdsr1); /* set both regions independantly */
-    bool setBaudRate(CANFD_timings_t config, uint8_t nominal_choice = 0, uint8_t flexdata_choice = 0, FLEXCAN_RXTX listen_only = TX);
-    void setBaudRate(FLEXCAN_FDRATES input); 
+    bool setBaudRateAdvanced(CANFD_timings_t config, uint8_t nominal_choice, uint8_t flexdata_choice, FLEXCAN_RXTX listen_only = TX);
+    bool setBaudRate(CANFD_timings_t config, FLEXCAN_RXTX listen_only = TX);
+    void setBaudRate(FLEXCAN_FDRATES input, FLEXCAN_RXTX listen_only = TX);
     void enableMBInterrupt(const FLEXCAN_MAILBOX &mb_num, bool status = 1);
     void disableMBInterrupt(const FLEXCAN_MAILBOX &mb_num) { enableMBInterrupt(mb_num, 0); }
     void enableMBInterrupts(bool status = 1);
@@ -355,6 +357,7 @@ FCTPFD_CLASS class FlexCAN_T4FD : public FlexCAN_T4_Base {
     uint64_t readIFLAG() { return (((uint64_t)FLEXCANb_IFLAG2(_bus) << 32) | FLEXCANb_IFLAG1(_bus)); }
     uint32_t mailbox_offset(uint8_t mailbox, uint8_t &maxsize); 
     void writeTxMailbox(uint8_t mb_num, const CANFD_message_t &msg);
+    bool setBaudRate(CANFD_timings_t config, uint8_t nominal_choice, uint8_t flexdata_choice, FLEXCAN_RXTX listen_only = TX, bool advanced = 0);
     int getFirstTxBox();
     uint32_t mb_filter_table[64][7];
     Circular_Buffer<uint8_t, (uint32_t)_rxSize, sizeof(CANFD_message_t)> rxBuffer;
@@ -379,7 +382,7 @@ FCTPFD_CLASS class FlexCAN_T4FD : public FlexCAN_T4_Base {
     uint32_t nvicIrq = 0; 
     uint8_t dlc_to_len(uint8_t val); 
     uint8_t len_to_dlc(uint8_t val); 
-    uint32_t setBaudRateFD(CANFD_timings_t config, uint32_t flexdata_choice); /* internally used */
+    uint32_t setBaudRateFD(CANFD_timings_t config, uint32_t flexdata_choice, bool advanced); /* internally used */
     void mbCallbacks(const FLEXCAN_MAILBOX &mb_num, const CANFD_message_t &msg);
     _MBFD_ptr _mbHandlers[64]; /* individual mailbox handlers */
     _MBFD_ptr _mainHandler; /* global mailbox handler */
