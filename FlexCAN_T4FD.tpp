@@ -182,6 +182,39 @@ FCTPFD_FUNC uint8_t FCTPFD_OPT::getFirstTxBoxSize() {
   return mbsize;
 }
 
+FCTPFD_FUNC void FCTPFD_OPT::setBaudRate(FLEXCAN_FDRATES input, FLEXCAN_RXTX listen_only) {
+  bool frz_flag_negate = !(FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FRZ_ACK);
+  FLEXCAN_EnterFreezeMode();
+  FLEXCANb_FDCTRL(_bus) = (FLEXCANb_FDCTRL(_bus) & 0xFFFF60FF); /* clear TDC values */
+  FLEXCANb_CBT(_bus) &= ~(1UL << 31); /* clear BTE bit to edit CTRL1 register */
+  ( listen_only != LISTEN_ONLY ) ? FLEXCANb_CTRL1(_bus) &= ~FLEXCAN_CTRL_LOM : FLEXCANb_CTRL1(_bus) |= FLEXCAN_CTRL_LOM;
+  if ( input == CAN_1M_2M ) { /* based on 24MHz and 70% sample point */
+    setClock(CLK_24MHz);
+    FLEXCANb_FDCTRL(_bus) |= (0x801B8300 & 0x9F00);
+    FLEXCANb_FDCBT(_bus) = 0x31423;
+    FLEXCANb_CBT(_bus) = 0x800624A6;
+  }
+  if ( input == CAN_1M_4M ) { /* based on 24MHz and 70% sample point */
+    setClock(CLK_24MHz);
+    FLEXCANb_FDCTRL(_bus) |= (0x80008300 & 0x9F00);
+    FLEXCANb_FDCBT(_bus) = 0x10421;
+    FLEXCANb_CBT(_bus) = 0x800624A6;
+  }
+  if ( input == CAN_1M_6M ) { /* based on 30MHz and 70% sample point */
+    setClock(CLK_30MHz);
+    FLEXCANb_FDCTRL(_bus) |= (0x80008300 & 0x9F00);
+    FLEXCANb_FDCBT(_bus) = 0x401;
+    FLEXCANb_CBT(_bus) = 0x80082CE8;
+  }
+  if ( input == CAN_1M_8M ) { /* based on 40MHz and 70% sample point */
+    setClock(CLK_40MHz);
+    FLEXCANb_FDCTRL(_bus) |= (0x80008300 & 0x9F00);
+    FLEXCANb_FDCBT(_bus) = 0x401;
+    FLEXCANb_CBT(_bus) = 0x800B3D4B;
+  }
+  if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
+}
+
 FCTPFD_FUNC uint8_t FCTPFD_OPT::max_mailboxes() {
   uint8_t mb_count = 0;
   uint8_t block0 = (FLEXCANb_FDCTRL(_bus) & (3UL << 16)) >> 16;
