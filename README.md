@@ -36,7 +36,7 @@ To set baudrate in CANFD mode, you need to call:
 ```config.bus_length = 1;```
 ```config.sample = 70;```
 ```FD.setRegions(64);```
-```FD.setBaudRate(config, 1, 1);```
+```FD.setBaudRate(config);```
 
 There are 2 different message structures for CAN2.0 and CANFD.
 CANFD: CANFD_message_t
