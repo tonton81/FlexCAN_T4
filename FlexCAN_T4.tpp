@@ -861,6 +861,7 @@ FCTP_FUNC uint64_t FCTP_OPT::events() {
     memmove(&frame, buf, sizeof(frame));
     if ( write((FLEXCAN_MAILBOX)getFirstTxBox(), frame) ) txBuffer.pop_front();
   }
+  return (uint64_t)(rxBuffer.size() << 12) | txBuffer.size();
 }
 
 #if defined(__IMXRT1062__)
