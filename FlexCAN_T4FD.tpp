@@ -254,7 +254,7 @@ FCTPFD_FUNC void FCTPFD_OPT::writeTxMailbox(uint8_t mb_num, const CANFD_message_
   if ( msg.len > mbsize ) msg.len = mbsize;
   code |= len_to_dlc(msg.len) << 16;
   if ( msg.brs ) code |= (1UL << 30); // BRS
-  code |= (1UL << 31); // EDL
+  if ( msg.edl ) code |= (1UL << 31); // EDL
   mbxAddr[0] = code | FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_TX_ONCE);
 }
 
