@@ -285,7 +285,7 @@ class FlexCAN_T4_Base {
   public:
     virtual void flexcan_interrupt() = 0;
     virtual void setBaudRate(uint32_t baud = 1000000) = 0;
-    virtual void events() = 0;
+    virtual uint64_t events() = 0;
     virtual int write(const CANFD_message_t &msg) = 0;
     virtual int write(const CAN_message_t &msg) = 0;
     virtual bool isFD() = 0;
@@ -296,7 +296,6 @@ class FlexCAN_T4_Base {
 FlexCAN_T4_Base* _CAN1 = nullptr;
 FlexCAN_T4_Base* _CAN2 = nullptr;
 FlexCAN_T4_Base* _CAN3 = nullptr;
-FlexCAN_T4_Base* _CAN3FD = nullptr;
 #endif
 #if defined(__MK20DX256__) || defined(__MK64FX512__) || defined(__MK66FX1M0__)
 FlexCAN_T4_Base* _CAN0 = nullptr;
@@ -335,7 +334,7 @@ FCTPFD_CLASS class FlexCAN_T4FD : public FlexCAN_T4_Base {
     void disableMBInterrupt(const FLEXCAN_MAILBOX &mb_num) { enableMBInterrupt(mb_num, 0); }
     void enableMBInterrupts(bool status = 1);
     void disableMBInterrupts() { enableMBInterrupts(0); }
-    void events();
+    uint64_t events();
     void onReceive(const FLEXCAN_MAILBOX &mb_num, _MBFD_ptr handler); /* individual mailbox callback function */
     void onReceive(_MBFD_ptr handler); /* global callback function */
     void setMBFilter(FLEXCAN_FLTEN input); /* enable/disable traffic for all MBs (for individual masking) */
@@ -433,7 +432,7 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     int write(const CAN_message_t &msg); /* use any available mailbox for transmitting */
     int write(const CANFD_message_t &msg) { return 0; } /* to satisfy base class for external pointers */
     int write(FLEXCAN_MAILBOX mb_num, const CAN_message_t &msg); /* use a single mailbox for transmitting */
-    void events();
+    uint64_t events();
     uint8_t setRFFN(FLEXCAN_RFFN_TABLE rffn = RFFN_8); /* Number Of Rx FIFO Filters (0 == 8 filters, 1 == 16 filters, etc.. */
     uint8_t setRFFN(uint8_t rffn) { return setRFFN((FLEXCAN_RFFN_TABLE)constrain(rffn, 0, 15)); }
     void setFIFOFilterTable(FLEXCAN_FIFOTABLE letter);
