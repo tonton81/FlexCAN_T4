@@ -572,21 +572,21 @@ FCTP_FUNC void FCTP_OPT::setTx(FLEXCAN_PINS pin) {
 FCTP_FUNC void FCTP_OPT::setRx(FLEXCAN_PINS pin) {
 #if defined(__IMXRT1062__)
   /* DAISY REGISTER CAN3
-    00 GPIO_EMC_37_ALT9 — Selecting Pad: GPIO_EMC_37 for Mode: ALT9
-    01 GPIO_AD_B0_15_ALT8 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
-    10 GPIO_AD_B0_11_ALT8 — Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
+    00 GPIO_EMC_37_ALT9 â€” Selecting Pad: GPIO_EMC_37 for Mode: ALT9
+    01 GPIO_AD_B0_15_ALT8 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
+    10 GPIO_AD_B0_11_ALT8 â€” Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
   */
   /* DAISY REGISTER CAN2
-    00 GPIO_EMC_10_ALT3 — Selecting Pad: GPIO_EMC_10 for Mode: ALT3
-    01 GPIO_AD_B0_03_ALT0 — Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
-    10 GPIO_AD_B0_15_ALT6 — Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
-    11 GPIO_B1_09_ALT6 — Selecting Pad: GPIO_B1_09 for Mode: ALT6
+    00 GPIO_EMC_10_ALT3 â€” Selecting Pad: GPIO_EMC_10 for Mode: ALT3
+    01 GPIO_AD_B0_03_ALT0 â€” Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
+    10 GPIO_AD_B0_15_ALT6 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
+    11 GPIO_B1_09_ALT6 â€” Selecting Pad: GPIO_B1_09 for Mode: ALT6
   */
   /* DAISY REGISTER CAN1
-    00 GPIO_SD_B1_03_ALT4 — Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
-    01 GPIO_EMC_18_ALT3 — Selecting Pad: GPIO_EMC_18 for Mode: ALT3
-    10 GPIO_AD_B1_09_ALT2 — Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
-    11 GPIO_B0_03_ALT2 — Selecting Pad: GPIO_B0_03 for Mode: ALT2
+    00 GPIO_SD_B1_03_ALT4 â€” Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
+    01 GPIO_EMC_18_ALT3 â€” Selecting Pad: GPIO_EMC_18 for Mode: ALT3
+    10 GPIO_AD_B1_09_ALT2 â€” Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
+    11 GPIO_B0_03_ALT2 â€” Selecting Pad: GPIO_B0_03 for Mode: ALT2
   */
   if ( _bus == CAN3 ) {
     if ( pin == DEF ) {
@@ -846,7 +846,7 @@ FCTP_FUNC void FCTP_OPT::onReceive(_MB_ptr handler) {
   _mainHandler = handler;
 }
 
-FCTP_FUNC void FCTP_OPT::events() {
+FCTP_FUNC uint64_t FCTP_OPT::events() {
   if ( rxBuffer.size() ) {
     CAN_message_t frame;
     uint8_t buf[sizeof(CAN_message_t)];
