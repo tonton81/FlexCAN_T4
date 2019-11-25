@@ -56,7 +56,7 @@ typedef struct CANFD_message_t {
   uint16_t timestamp = 0;   // FlexCAN time when message arrived
   bool brs = 1;        // baud rate switching for data
   bool esi = 0;        // error status indicator
-  bool edl = 0;        // extended data length (for RX, 0 == CAN2.0, 1 == FD)
+  bool edl = 1;        // extended data length (for RX, 0 == CAN2.0, 1 == FD)
   struct {
     bool extended = 0; // identifier is extended (29-bit)
     bool overrun = 0; // message overrun
