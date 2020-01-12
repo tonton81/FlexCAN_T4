@@ -293,13 +293,13 @@ class FlexCAN_T4_Base {
 };
 
 #if defined(__IMXRT1062__)
-FlexCAN_T4_Base* _CAN1 = nullptr;
-FlexCAN_T4_Base* _CAN2 = nullptr;
-FlexCAN_T4_Base* _CAN3 = nullptr;
+static FlexCAN_T4_Base* _CAN1 = nullptr;
+static FlexCAN_T4_Base* _CAN2 = nullptr;
+static FlexCAN_T4_Base* _CAN3 = nullptr;
 #endif
 #if defined(__MK20DX256__) || defined(__MK64FX512__) || defined(__MK66FX1M0__)
-FlexCAN_T4_Base* _CAN0 = nullptr;
-FlexCAN_T4_Base* _CAN1 = nullptr;
+static FlexCAN_T4_Base* _CAN0 = nullptr;
+static FlexCAN_T4_Base* _CAN1 = nullptr;
 #endif
 
 extern void ext_outputFD1(const CANFD_message_t &msg); // Interrupt data output, not filtered, for external libraries
