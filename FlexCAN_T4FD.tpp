@@ -31,7 +31,7 @@
 #include "imxrt_flexcan.h"
 #include "Arduino.h"
 
-void flexcan_isr_can3fd();
+static void flexcan_isr_can3fd();
 
 FCTPFD_FUNC FCTPFD_OPT::FlexCAN_T4FD() {
   if ( _bus == CAN3 ) _CAN3 = this;
@@ -399,7 +399,7 @@ FCTPFD_FUNC void FCTPFD_OPT::writeIMASKBit(uint8_t mb_num, bool set) {
   else (( set ) ? FLEXCANb_IMASK2(_bus) |= (1UL << (mb_num - 32)) : FLEXCANb_IMASK2(_bus) &= ~(1UL << (mb_num - 32)));
 }
 
-void flexcan_isr_can3fd() {
+static void flexcan_isr_can3fd() {
   if ( _CAN3 ) _CAN3->flexcan_interrupt();
 }
 
