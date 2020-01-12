@@ -31,10 +31,18 @@
 #include "imxrt_flexcan.h"
 #include "Arduino.h"
 
-void flexcan_isr_can3();
-void flexcan_isr_can2();
-void flexcan_isr_can1();
-void flexcan_isr_can0();
+#if defined(__IMXRT1062__)
+static void flexcan_isr_can3();
+static void flexcan_isr_can2();
+static void flexcan_isr_can1();
+#endif
+#if defined(__MK20DX256__) || defined(__MK64FX512__)
+static void flexcan_isr_can0();
+#endif
+#if defined(__MK66FX1M0__)
+static void flexcan_isr_can0();
+static void flexcan_isr_can1();
+#endif
 
 FCTP_FUNC FCTP_OPT::FlexCAN_T4() {
 #if defined(__IMXRT1062__)
@@ -865,23 +873,28 @@ FCTP_FUNC uint64_t FCTP_OPT::events() {
 }
 
 #if defined(__IMXRT1062__)
-void flexcan_isr_can1() {
+static void flexcan_isr_can1() {
   if ( _CAN1 ) _CAN1->flexcan_interrupt();
 }
 
-void flexcan_isr_can2() {
+static void flexcan_isr_can2() {
   if ( _CAN2 ) _CAN2->flexcan_interrupt();
 }
 
-void flexcan_isr_can3() {
+static void flexcan_isr_can3() {
   if ( _CAN3 ) _CAN3->flexcan_interrupt();
 }
 #endif
-#if defined(__MK20DX256__) || defined(__MK64FX512__) || defined(__MK66FX1M0__)
-void flexcan_isr_can0() {
+#if defined(__MK20DX256__) || defined(__MK64FX512__)
+static void flexcan_isr_can0() {
   if ( _CAN0 ) _CAN0->flexcan_interrupt();
 }
-void flexcan_isr_can1() {
+#endif
+#if defined(__MK66FX1M0__)
+static void flexcan_isr_can0() {
+  if ( _CAN0 ) _CAN0->flexcan_interrupt();
+}
+static void flexcan_isr_can1() {
   if ( _CAN1 ) _CAN1->flexcan_interrupt();
 }
 #endif
