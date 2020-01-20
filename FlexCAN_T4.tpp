@@ -733,20 +733,27 @@ FCTP_FUNC bool FCTP_OPT::setMBFilterRange(FLEXCAN_MAILBOX mb_num, uint32_t id1, 
 }
 
 FCTP_FUNC int FCTP_OPT::readFIFO(CAN_message_t &msg) {
+  delayMicroseconds(150);
   if ( !(FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FEN) ) return 0; /* FIFO is disabled */
-  if ( FLEXCANb_IMASK1(_bus) & FLEXCAN_IMASK1_BUF5M ) return 0; /* FIFO interrupt enabled, polling blocked */
+  if ( !(FLEXCANb_MCR(_bus) & (1UL << 15)) ) { /* if DMA is not enabled, check interrupt flag, else continue. */
+    if ( FLEXCANb_IMASK1(_bus) & FLEXCAN_IMASK1_BUF5M ) return 0; /* FIFO interrupt enabled, polling blocked */
+  }
   if ( FLEXCANb_IFLAG1(_bus) & FLEXCAN_IFLAG1_BUF5I ) { /* message available */
-    volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(_bus + 0x80 + (0 * 0x10)));
+    volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(_bus + 0x80));
     uint32_t code = mbxAddr[0];
     msg.len = (code & 0xF0000) >> 16;
     msg.flags.remote = (bool)(code & (1UL << 20));
     msg.flags.extended = (bool)(code & (1UL << 21));
     msg.timestamp = code & 0xFFFF;
     msg.id = (mbxAddr[1] & 0x1FFFFFFF) >> ((msg.flags.extended) ? 0 : 18);
-    for ( uint8_t i = 0; i < (8 >> 2); i++ ) for ( int8_t d = 0; d < 4 ; d++ ) msg.buf[(4 * i) + 3 - d] = (uint8_t)(mbxAddr[2 + i] >> (8 * d));
+    uint32_t data0 = mbxAddr[2]; 
+    for ( int8_t d = 0; d < 4 ; d++ ) msg.buf[3 - d] = (uint8_t)(data0 >> (8 * d));
+    uint32_t data1 = mbxAddr[3];
+    for ( int8_t d = 0; d < 4 ; d++ ) msg.buf[7 - d] = (uint8_t)(data1 >> (8 * d));
     msg.bus = busNumber;
+    msg.idhit = (uint8_t)(FLEXCANb_RXFIR(_bus) & 0x1FF);
     msg.mb = FIFO; /* store the mailbox the message came from (for callback reference) */
-    writeIFLAGBit(5); /* clear FIFO bit only! */
+    if ( !(FLEXCANb_MCR(_bus) & (1UL << 15)) ) writeIFLAGBit(5); /* clear FIFO bit only, NOT FOR DMA USE! */
     frame_distribution(msg);
     if ( filter_match((FLEXCAN_MAILBOX)msg.mb, msg.id) ) return 1;
   }
@@ -920,29 +927,31 @@ FCTP_FUNC void FCTP_OPT::flexcan_interrupt() {
   CAN_message_t msg; // setup a temporary storage buffer
   uint64_t imask = readIMASK(), iflag = readIFLAG();
 
-  if ( (FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FEN) && (imask & FLEXCAN_IMASK1_BUF5M) && (iflag & FLEXCAN_IFLAG1_BUF5I) ) { /* FIFO is enabled, capture frames if triggered */
-    volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(_bus + 0x80 + (0 * 0x10)));
-    uint32_t code = mbxAddr[0];
-    msg.len = (code & 0xF0000) >> 16;
-    msg.flags.remote = (bool)(code & (1UL << 20));
-    msg.flags.extended = (bool)(code & (1UL << 21));
-    msg.timestamp = code & 0xFFFF;
-    msg.id = (mbxAddr[1] & 0x1FFFFFFF) >> ((msg.flags.extended) ? 0 : 18);
-    msg.idhit = code >> 23;
-    for ( uint8_t i = 0; i < (8 >> 2); i++ ) for ( int8_t d = 0; d < 4 ; d++ ) msg.buf[(4 * i) + 3 - d] = (uint8_t)(mbxAddr[2 + i] >> (8 * d));
-    msg.bus = busNumber;
-    msg.mb = FIFO; /* store the mailbox the message came from (for callback reference) */
-    (void)FLEXCANb_TIMER(_bus);
-    writeIFLAGBit(5); /* clear FIFO bit only! */
-    if ( iflag & FLEXCAN_IFLAG1_BUF6I ) writeIFLAGBit(6); /* clear FIFO bit only! */
-    if ( iflag & FLEXCAN_IFLAG1_BUF7I ) writeIFLAGBit(7); /* clear FIFO bit only! */
-    frame_distribution(msg);
-    ext_output1(msg);
-    ext_output2(msg);
-    ext_output3(msg);
-    if (fifo_filter_match(msg.id)) struct2queueRx(msg);
-
+  if ( !(FLEXCANb_MCR(_bus) & (1UL << 15)) ) { /* if DMA is disabled, ONLY THEN you can handle FIFO in ISR */
+    if ( (FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FEN) && (imask & FLEXCAN_IMASK1_BUF5M) && (iflag & FLEXCAN_IFLAG1_BUF5I) ) { /* FIFO is enabled, capture frames if triggered */
+      volatile uint32_t *mbxAddr = &(*(volatile uint32_t*)(_bus + 0x80 + (0 * 0x10)));
+      uint32_t code = mbxAddr[0];
+      msg.len = (code & 0xF0000) >> 16;
+      msg.flags.remote = (bool)(code & (1UL << 20));
+      msg.flags.extended = (bool)(code & (1UL << 21));
+      msg.timestamp = code & 0xFFFF;
+      msg.id = (mbxAddr[1] & 0x1FFFFFFF) >> ((msg.flags.extended) ? 0 : 18);
+      msg.idhit = code >> 23;
+      for ( uint8_t i = 0; i < (8 >> 2); i++ ) for ( int8_t d = 0; d < 4 ; d++ ) msg.buf[(4 * i) + 3 - d] = (uint8_t)(mbxAddr[2 + i] >> (8 * d));
+      msg.bus = busNumber;
+      msg.mb = FIFO; /* store the mailbox the message came from (for callback reference) */
+      (void)FLEXCANb_TIMER(_bus);
+      writeIFLAGBit(5); /* clear FIFO bit only! */
+      if ( iflag & FLEXCAN_IFLAG1_BUF6I ) writeIFLAGBit(6); /* clear FIFO bit only! */
+      if ( iflag & FLEXCAN_IFLAG1_BUF7I ) writeIFLAGBit(7); /* clear FIFO bit only! */
+      frame_distribution(msg);
+      ext_output1(msg);
+      ext_output2(msg);
+      ext_output3(msg);
+      if (fifo_filter_match(msg.id)) struct2queueRx(msg);
+    }
   }
+
   uint8_t exit_point = 64 - __builtin_clzll(iflag | 1); /* break from MSB's if unset, add 1 to prevent undefined behaviour in clz for 0 check */
   for ( uint8_t mb_num = mailboxOffset(); mb_num < FLEXCANb_MAXMB_SIZE(_bus); mb_num++ ) {
     if ( mb_num >= exit_point ) break; /* early exit from higher unflagged mailboxes */
