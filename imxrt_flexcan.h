@@ -40,10 +40,13 @@
 
 
 // CANFD (confirmed valid)
-#define FLEXCANb_FDCTRL(b)     (*(vuint32_t*)(b+0xC00))
+#define FLEXCANb_FDCTRL(b)    (*(vuint32_t*)(b+0xC00))
 #define FLEXCANb_FDCBT(b)     (*(vuint32_t*)(b+0xC04))
-#define FLEXCANb_CBT(b)     (*(vuint32_t*)(b+0x50))
+#define FLEXCANb_CBT(b)       (*(vuint32_t*)(b+0x50))
 #define FLEXCANb_ERFCR(b)     (*(vuint32_t*)(b+0xC0C))
+#define FLEXCANb_DBG1(b)      (*(vuint32_t*)(b+0x58))
+#define FLEXCANb_DBG2(b)      (*(vuint32_t*)(b+0x5C))
+
 
 
 
