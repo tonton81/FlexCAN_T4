@@ -418,7 +418,7 @@ FCTP_FUNC void FCTP_OPT::writeTxMailbox(uint8_t mb_num, const CAN_message_t &msg
     uint32_t timeout = millis();
     while ( !(readIFLAG() & (1ULL << mb_num)) && (millis() - timeout < 20) );
     writeIFLAGBit(mb_num);
-    FLEXCANb_MBn_CS(_bus, mb_num) = FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_TX_INACTIVE);
+    mbxAddr[0] = FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_TX_INACTIVE);
   }
 }
 
