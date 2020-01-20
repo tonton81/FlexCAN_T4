@@ -413,6 +413,13 @@ FCTP_FUNC void FCTP_OPT::writeTxMailbox(uint8_t mb_num, const CAN_message_t &msg
   for ( uint8_t i = 0; i < (8 >> 2); i++ ) mbxAddr[2 + i] = (msg.buf[0 + i * 4] << 24) | (msg.buf[1 + i * 4] << 16) | (msg.buf[2 + i * 4] << 8) | msg.buf[3 + i * 4];
   code |= msg.len << 16;
   mbxAddr[0] = code | FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_TX_ONCE);
+
+  if ( msg.flags.remote ) {
+    uint32_t timeout = millis();
+    while ( !(readIFLAG() & (1ULL << mb_num)) && (millis() - timeout < 20) );
+    writeIFLAGBit(mb_num);
+    FLEXCANb_MBn_CS(_bus, mb_num) = FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_TX_INACTIVE);
+  }
 }
 
 FCTP_FUNC uint8_t FCTP_OPT::mailboxOffset() {
