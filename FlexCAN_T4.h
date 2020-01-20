@@ -37,7 +37,7 @@
 typedef struct CAN_message_t {
   uint32_t id = 0;          // can identifier
   uint16_t timestamp = 0;   // FlexCAN time when message arrived
-  uint16_t idhit = 0; // filter which passed frame into fifo
+  uint8_t idhit = 0; // filter that id came from
   struct {
     bool extended = 0; // identifier is extended (29-bit)
     bool remote = 0;  // remote transmission request packet type
@@ -54,6 +54,7 @@ typedef struct CAN_message_t {
 typedef struct CANFD_message_t {
   uint32_t id = 0;          // can identifier
   uint16_t timestamp = 0;   // FlexCAN time when message arrived
+  uint8_t idhit = 0; // filter that id came from
   bool brs = 1;        // baud rate switching for data
   bool esi = 0;        // error status indicator
   bool edl = 1;        // extended data length (for RX, 0 == CAN2.0, 1 == FD)
