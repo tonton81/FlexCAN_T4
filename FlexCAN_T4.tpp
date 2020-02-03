@@ -231,7 +231,6 @@ FCTP_FUNC bool FCTP_OPT::setMB(const FLEXCAN_MAILBOX &mb_num, const FLEXCAN_RXTX
   }
   if ( mb_rx_tx == TX ) {
     FLEXCANb_MBn_CS(_bus, mb_num) = FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_TX_INACTIVE);
-    writeIMASKBit(mb_num, 1);
   }
   if ( ide == INACTIVE ) {
     FLEXCANb_MBn_CS(_bus, mb_num) = FLEXCAN_MB_CS_CODE(FLEXCAN_MB_CODE_RX_INACTIVE);
