@@ -984,6 +984,9 @@ FCTP_FUNC void FCTP_OPT::flexcan_interrupt() {
       ext_output2(msg);
       ext_output3(msg);
     }
+    if ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_TX_INACTIVE ) {
+      writeIFLAGBit(mb_num); /* clear IFLAG, currently unused */
+    }
   }
   FLEXCANb_ESR1(_bus) |= FLEXCANb_ESR1(_bus);
 }
