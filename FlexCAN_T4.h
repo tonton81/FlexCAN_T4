@@ -285,7 +285,7 @@ typedef enum CAN_DEV_TABLE {
 class FlexCAN_T4_Base {
   public:
     virtual void flexcan_interrupt() = 0;
-    virtual void setBaudRate(uint32_t baud = 1000000) = 0;
+    virtual void setBaudRate(uint32_t baud = 1000000, FLEXCAN_RXTX listen_only = TX) = 0;
     virtual uint64_t events() = 0;
     virtual int write(const CANFD_message_t &msg) = 0;
     virtual int write(const CAN_message_t &msg) = 0;
@@ -371,7 +371,7 @@ FCTPFD_CLASS class FlexCAN_T4FD : public FlexCAN_T4_Base {
     uint8_t max_mailboxes();
     uint64_t readIMASK() { return (((uint64_t)FLEXCANb_IMASK2(_bus) << 32) | FLEXCANb_IMASK1(_bus)); }
     void frame_distribution(CANFD_message_t &msg);
-    void setBaudRate(uint32_t baud = 1000000) { ; } // unused, CAN2.0 only (needed for base class existance)
+    void setBaudRate(uint32_t baud = 1000000, FLEXCAN_RXTX listen_only = TX) { ; } // unused, CAN2.0 only (needed for base class existance)
     void setClock(FLEXCAN_CLOCK clock = CLK_24MHz);
     uint32_t getClock();
     void softReset();
@@ -402,7 +402,7 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     uint32_t getBaudRate() { return currentBitrate; }
     void setTx(FLEXCAN_PINS pin = DEF);
     void setRx(FLEXCAN_PINS pin = DEF);
-    void setBaudRate(uint32_t baud = 1000000);
+    void setBaudRate(uint32_t baud = 1000000, FLEXCAN_RXTX listen_only = TX);
     void reset() { softReset(); } /* reset flexcan controller (needs register restore capabilities...) */
     void setMaxMB(uint8_t last);
     void enableFIFO(bool status = 1);
