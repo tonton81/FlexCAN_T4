@@ -67,9 +67,10 @@ FCTP_FUNC void FCTP_OPT::setClock(FLEXCAN_CLOCK clock) {
   if ( clock == CLK_40MHz ) CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(2) | CCM_CSCMR2_CAN_CLK_PODF(1);
   if ( clock == CLK_60MHz ) CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(0) | CCM_CSCMR2_CAN_CLK_PODF(0);
   if ( clock == CLK_80MHz ) CCM_CSCMR2 = (CCM_CSCMR2 & 0xFFFFFC03) | CCM_CSCMR2_CAN_CLK_SEL(2) | CCM_CSCMR2_CAN_CLK_PODF(0);
-  if ( _CAN1 ) _CAN1->setBaudRate(currentBitrate);
-  if ( _CAN2 ) _CAN2->setBaudRate(currentBitrate);
-  if ( _CAN3 ) _CAN3->setBaudRate(currentBitrate);
+
+  if ( _CAN1 ) _CAN1->setBaudRate(currentBitrate, (( FLEXCANb_CTRL1(_bus) & FLEXCAN_CTRL_LOM ) ? LISTEN_ONLY : TX));
+  if ( _CAN2 ) _CAN2->setBaudRate(currentBitrate, (( FLEXCANb_CTRL1(_bus) & FLEXCAN_CTRL_LOM ) ? LISTEN_ONLY : TX));
+  if ( _CAN3 ) _CAN3->setBaudRate(currentBitrate, (( FLEXCANb_CTRL1(_bus) & FLEXCAN_CTRL_LOM ) ? LISTEN_ONLY : TX));
 }
 
 FCTP_FUNC uint32_t FCTP_OPT::getClock() {
@@ -456,7 +457,7 @@ FCTP_FUNC void FCTP_OPT::FLEXCAN_EnterFreezeMode() {
   while (!(FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FRZ_ACK));
 }
 
-FCTP_FUNC void FCTP_OPT::setBaudRate(uint32_t baud) {
+FCTP_FUNC void FCTP_OPT::setBaudRate(uint32_t baud, FLEXCAN_RXTX listen_only) {
   currentBitrate = baud;
 
 #if defined(__IMXRT1062__)
@@ -522,7 +523,7 @@ FCTP_FUNC void FCTP_OPT::setBaudRate(uint32_t baud) {
   }, propSeg = bitTimingTable[result][0], pSeg1 = bitTimingTable[result][1], pSeg2 = bitTimingTable[result][2];
   FLEXCANb_CTRL1(_bus) = (FLEXCAN_CTRL_PROPSEG(propSeg) | FLEXCAN_CTRL_RJW(1) | FLEXCAN_CTRL_PSEG1(pSeg1) |
                     FLEXCAN_CTRL_PSEG2(pSeg2) | FLEXCAN_CTRL_ERR_MSK | FLEXCAN_CTRL_PRESDIV(divisor));
-  FLEXCANb_CTRL1(_bus) &= ~FLEXCAN_CTRL_LOM; /* disable listen-only mode */
+  ( listen_only != LISTEN_ONLY ) ? FLEXCANb_CTRL1(_bus) &= ~FLEXCAN_CTRL_LOM : FLEXCANb_CTRL1(_bus) |= FLEXCAN_CTRL_LOM; /* listen-only mode */
   if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
 }
 
