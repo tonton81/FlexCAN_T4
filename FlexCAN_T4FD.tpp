@@ -64,7 +64,7 @@ FCTPFD_FUNC void FCTPFD_OPT::begin() {
     busNumber = 3;
   }
 
-  setTx(); setRx();
+  setTX(); setRX();
 
   FLEXCANb_MCR(_bus) &= ~FLEXCAN_MCR_MDIS; /* enable module */
   FLEXCAN_EnterFreezeMode();
@@ -310,7 +310,7 @@ FCTPFD_FUNC void FCTPFD_OPT::softReset() {
   while (FLEXCANb_MCR(_bus) & FLEXCAN_MCR_SOFT_RST);
 }
 
-FCTPFD_FUNC void FCTPFD_OPT::setTx(FLEXCAN_PINS pin) {
+FCTPFD_FUNC void FCTPFD_OPT::setTX(FLEXCAN_PINS pin) {
   if ( _bus == CAN3 ) {
     if ( pin == DEF ) {
       IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_36 = 0x19; // pin31 T3B2
@@ -331,7 +331,7 @@ FCTPFD_FUNC void FCTPFD_OPT::setTx(FLEXCAN_PINS pin) {
   }
 }
 
-FCTPFD_FUNC void FCTPFD_OPT::setRx(FLEXCAN_PINS pin) {
+FCTPFD_FUNC void FCTPFD_OPT::setRX(FLEXCAN_PINS pin) {
   /* DAISY REGISTER CAN3
     00 GPIO_EMC_37_ALT9 â€” Selecting Pad: GPIO_EMC_37 for Mode: ALT9
     01 GPIO_AD_B0_15_ALT8 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
