@@ -138,7 +138,7 @@ FCTP_FUNC void FCTP_OPT::begin() {
   FLEXCANb_CTRL1(_bus) &= ~FLEXCAN_CTRL_CLK_SRC;
 #endif
 
-  setTx(); setRx();
+  setTX(); setRX();
 
   FLEXCANb_MCR(_bus) &= ~FLEXCAN_MCR_MDIS; /* enable module */
   FLEXCAN_EnterFreezeMode();
@@ -541,7 +541,7 @@ FCTP_FUNC void FCTP_OPT::setRRS(bool rrs) { /* store remote frames */
   FLEXCAN_ExitFreezeMode();
 }
 
-FCTP_FUNC void FCTP_OPT::setTx(FLEXCAN_PINS pin) {
+FCTP_FUNC void FCTP_OPT::setTX(FLEXCAN_PINS pin) {
 #if defined(__IMXRT1062__)
   if ( _bus == CAN3 ) {
     if ( pin == DEF ) {
@@ -559,6 +559,10 @@ FCTP_FUNC void FCTP_OPT::setTx(FLEXCAN_PINS pin) {
     if ( pin == DEF ) {
       IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_08 = 0x12; // pin 22 T4B1+B2
       IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_08 = 0x10B0; // pin 22 T4B1+B2
+    }
+    if ( pin == ALT ) {
+      IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_02 = 0x12; // pin 11 T4B1+B2
+      IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02= 0x10B0; // pin 11 T4B1+B2
     }
   }
 #endif
@@ -584,7 +588,7 @@ FCTP_FUNC void FCTP_OPT::setTx(FLEXCAN_PINS pin) {
 
 }
 
-FCTP_FUNC void FCTP_OPT::setRx(FLEXCAN_PINS pin) {
+FCTP_FUNC void FCTP_OPT::setRX(FLEXCAN_PINS pin) {
 #if defined(__IMXRT1062__)
   /* DAISY REGISTER CAN3
     00 GPIO_EMC_37_ALT9 â€” Selecting Pad: GPIO_EMC_37 for Mode: ALT9
@@ -622,6 +626,11 @@ FCTP_FUNC void FCTP_OPT::setRx(FLEXCAN_PINS pin) {
       IOMUXC_FLEXCAN1_RX_SELECT_INPUT = 0x02;
       IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_09 = 0x12; // pin 23 T4B1+B2
       IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_09 = 0x10B0; // pin 23 T4B1+B2
+    }
+    if ( pin == ALT ) {
+      IOMUXC_FLEXCAN1_RX_SELECT_INPUT = 0x03;
+      IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_03 = 0x12; // pin 13 T4B1+B2
+      IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03 = 0x10B0; // pin 13 T4B1+B2
     }
   }
 #endif
