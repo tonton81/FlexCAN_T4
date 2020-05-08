@@ -351,6 +351,8 @@ FCTPFD_CLASS class FlexCAN_T4FD : public FlexCAN_T4_Base {
     void enableDMA(bool state = 1);
     void disableDMA() { enableDMA(0); }
     uint8_t getFirstTxBoxSize();
+    void setMBFilterProcessing(FLEXCAN_MAILBOX mb_num, uint32_t filter_id, uint32_t calculated_mask);
+    
 
   private:
     uint64_t readIFLAG() { return (((uint64_t)FLEXCANb_IFLAG2(_bus) << 32) | FLEXCANb_IFLAG1(_bus)); }
@@ -385,7 +387,6 @@ FCTPFD_CLASS class FlexCAN_T4FD : public FlexCAN_T4_Base {
     void mbCallbacks(const FLEXCAN_MAILBOX &mb_num, const CANFD_message_t &msg);
     _MBFD_ptr _mbHandlers[64]; /* individual mailbox handlers */
     _MBFD_ptr _mainHandler; /* global mailbox handler */
-    void setMBFilterProcessing(FLEXCAN_MAILBOX mb_num, uint32_t filter_id, uint32_t calculated_mask);
     void filter_store(FLEXCAN_FILTER_TABLE type, FLEXCAN_MAILBOX mb_num, uint32_t id_count, uint32_t id1, uint32_t id2, uint32_t id3, uint32_t id4, uint32_t id5, uint32_t mask);
     bool filter_match(FLEXCAN_MAILBOX mb_num, uint32_t id);
     void struct2queueTx(const CANFD_message_t &msg);
@@ -453,6 +454,8 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     void enableDMA(bool state = 1);
     void disableDMA() { enableDMA(0); }
     uint8_t getFirstTxBoxSize(){ return 8; }
+    void setMBFilterProcessing(FLEXCAN_MAILBOX mb_num, uint32_t filter_id, uint32_t calculated_mask);
+    
 
   private:
     void writeTxMailbox(uint8_t mb_num, const CAN_message_t &msg);
@@ -489,7 +492,6 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     uint32_t currentBitrate = 0UL;
     uint8_t mailbox_reader_increment = 0;
     uint8_t busNumber;
-    void setMBFilterProcessing(FLEXCAN_MAILBOX mb_num, uint32_t filter_id, uint32_t calculated_mask);
     void mbCallbacks(const FLEXCAN_MAILBOX &mb_num, const CAN_message_t &msg);
 };
 
