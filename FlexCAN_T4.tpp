@@ -572,7 +572,7 @@ FCTP_FUNC void FCTP_OPT::setTX(FLEXCAN_PINS pin) {
 #endif
 #if defined(__MK64FX512__) || defined(__MK66FX1M0__)
   if ( _bus == CAN0 ) {
-    pin = ( !CORE_PIN3_CONFIG && !CORE_PIN29_CONFIG ) ? DEF : ALT; 
+    pin = ( !CORE_PIN3_CONFIG ) ? DEF : ALT; 
     if ( pin == ALT ) {
       if ( CORE_PIN3_CONFIG == PORT_PCR_MUX(2) ) CORE_PIN3_CONFIG = 0;
       CORE_PIN29_CONFIG = PORT_PCR_MUX(2);
@@ -643,7 +643,7 @@ FCTP_FUNC void FCTP_OPT::setRX(FLEXCAN_PINS pin) {
 #endif
 #if defined(__MK64FX512__) || defined(__MK66FX1M0__)
   if ( _bus == CAN0 ) {
-    pin = ( !CORE_PIN4_CONFIG && !CORE_PIN30_CONFIG ) ? DEF : ALT; 
+    pin = ( !CORE_PIN4_CONFIG ) ? DEF : ALT; 
     if ( pin == ALT ) {
       if ( CORE_PIN4_CONFIG == PORT_PCR_MUX(2) ) CORE_PIN4_CONFIG = 0;
       CORE_PIN30_CONFIG = PORT_PCR_MUX(2);
