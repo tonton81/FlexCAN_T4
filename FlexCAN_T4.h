@@ -73,6 +73,7 @@ typedef struct CANFD_message_t {
 typedef void (*_MB_ptr)(const CAN_message_t &msg); /* mailbox / global callbacks */
 typedef void (*_MBFD_ptr)(const CANFD_message_t &msg); /* mailbox / global callbacks */
 
+
 typedef enum FLEXCAN_PINS {
   ALT = 0,
   DEF = 1,
@@ -424,6 +425,8 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     void setRRS(bool rrs = 1); /* store remote frames */
     void onReceive(const FLEXCAN_MAILBOX &mb_num, _MB_ptr handler); /* individual mailbox callback function */
     void onReceive(_MB_ptr handler); /* global callback function */
+    void onTransmit(const FLEXCAN_MAILBOX &mb_num, _MB_ptr handler); /* individual mailbox callback function */
+    void onTransmit(_MB_ptr handler); /* global callback function */
     bool setMBUserFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t mask);
     bool setMBUserFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t id2, uint32_t mask);
     bool setMBUserFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t id2, uint32_t id3, uint32_t mask);
@@ -495,6 +498,8 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     int getFirstTxBox();
     _MB_ptr _mbHandlers[64]; /* individual mailbox handlers */
     _MB_ptr _mainHandler; /* global mailbox handler */
+    _MB_ptr _mbTxHandlers[64]; /* individual mailbox tx handlers */
+    _MB_ptr _mainTxHandler; /* global mailbox handler */
     uint64_t readIFLAG();// { return (((uint64_t)FLEXCANb_IFLAG2(_bus) << 32) | FLEXCANb_IFLAG1(_bus)); }
     void writeIFLAG(uint64_t value);
     void writeIFLAGBit(uint8_t mb_num);

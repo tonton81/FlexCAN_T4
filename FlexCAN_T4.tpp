@@ -1045,6 +1045,18 @@ FCTP_FUNC void FCTP_OPT::onReceive(_MB_ptr handler) {
   _mainHandler = handler;
 }
 
+FCTP_FUNC void FCTP_OPT::onTransmit(const FLEXCAN_MAILBOX &mb_num, _MB_ptr handler) {
+  if ( FIFO == mb_num ) {
+    _mbTxHandlers[0] = handler;
+    return;
+  }
+  _mbTxHandlers[mb_num] = handler;
+}
+
+FCTP_FUNC void FCTP_OPT::onTransmit(_MB_ptr handler) {
+  _mainTxHandler = handler;
+}
+
 FCTP_FUNC uint64_t FCTP_OPT::events() {
   if ( !isEventsUsed ) isEventsUsed = 1;
   if ( rxBuffer.size() ) {
@@ -1187,6 +1199,24 @@ FCTP_FUNC void FCTP_OPT::flexcan_interrupt() {
       /* there are no flags for EMPTY reception boxes, however, when sending remote
          frames, the mailboxes switch to RX_EMPTY and trigger the flag */
       if (!(iflag & (1ULL << mb_num))) continue; /* only process the flagged RX_EMPTY mailboxes */
+
+      msg.flags.extended = (bool)(code & (1UL << 21));
+      msg.id = (mbxAddr[1] & 0x1FFFFFFF) >> ((msg.flags.extended) ? 0 : 18);
+      if ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) msg.flags.overrun = 1;
+      msg.len = (code & 0xF0000) >> 16;
+      msg.mb = mb_num;
+      msg.timestamp = code & 0xFFFF;
+      msg.bus = busNumber;
+      for ( uint8_t i = 0; i < (8 >> 2); i++ ) for ( int8_t d = 0; d < 4 ; d++ ) msg.buf[(4 * i) + 3 - d] = (uint8_t)(mbxAddr[2 + i] >> (8 * d));
+      if ( mb_num == FIFO ) {
+        if ( _mbTxHandlers[0] ) _mbTxHandlers[0](msg);
+        if ( _mainTxHandler ) _mainTxHandler(msg);
+      }
+      else {
+        if ( _mbTxHandlers[mb_num] ) _mbTxHandlers[mb_num](msg);
+        if ( _mainTxHandler ) _mainTxHandler(msg);
+      }
+
       if ( txBuffer.size() ) {
         CAN_message_t frame;
         uint8_t buf[sizeof(CAN_message_t)];
@@ -1208,6 +1238,24 @@ FCTP_FUNC void FCTP_OPT::flexcan_interrupt() {
     }
 
     else if ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_TX_INACTIVE ) {
+
+      msg.flags.extended = (bool)(code & (1UL << 21));
+      msg.id = (mbxAddr[1] & 0x1FFFFFFF) >> ((msg.flags.extended) ? 0 : 18);
+      if ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) msg.flags.overrun = 1;
+      msg.len = (code & 0xF0000) >> 16;
+      msg.mb = mb_num;
+      msg.timestamp = code & 0xFFFF;
+      msg.bus = busNumber;
+      for ( uint8_t i = 0; i < (8 >> 2); i++ ) for ( int8_t d = 0; d < 4 ; d++ ) msg.buf[(4 * i) + 3 - d] = (uint8_t)(mbxAddr[2 + i] >> (8 * d));
+      if ( mb_num == FIFO ) {
+        if ( _mbTxHandlers[0] ) _mbTxHandlers[0](msg);
+        if ( _mainTxHandler ) _mainTxHandler(msg);
+      }
+      else {
+        if ( _mbTxHandlers[mb_num] ) _mbTxHandlers[mb_num](msg);
+        if ( _mainTxHandler ) _mainTxHandler(msg);
+      }
+
       if ( txBuffer.size() ) {
         CAN_message_t frame;
         uint8_t buf[sizeof(CAN_message_t)];
