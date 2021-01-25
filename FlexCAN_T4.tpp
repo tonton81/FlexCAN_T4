@@ -54,6 +54,17 @@ FCTP_FUNC FCTP_OPT::FlexCAN_T4() {
   if ( _bus == CAN1 ) _CAN1 = this;
   if ( _bus == CAN0 ) _CAN0 = this;
 #endif
+
+#if defined(__MK20DX256__) || defined(__MK64FX512__)
+  static_assert(_bus == CAN0, "Only CAN0 works on Teensy 3.2/3.5");
+#endif
+#if defined(__MK66FX1M0__)
+  static_assert(_bus == CAN0 || _bus == CAN1, "Only CAN0 & CAN1 works on Teensy 3.6");
+#endif
+#if defined(__IMXRT1062__)
+  static_assert(_bus == CAN1 || _bus == CAN2 || _bus == CAN3, "Only CAN1 & CAN2 & CAN3 works on Teensy 4.0/4.1");
+#endif
+
 }
 
 #if defined(__IMXRT1062__)
@@ -80,6 +91,9 @@ FCTP_FUNC uint32_t FCTP_OPT::getClock() {
 #endif
 
 FCTP_FUNC void FCTP_OPT::begin() {
+
+  for (uint8_t i = 0; i < SIZE_LISTENERS; i++) listener[i] = nullptr;
+
 #if defined(__IMXRT1062__)
   if ( !getClock() ) setClock(CLK_24MHz); /* no clock enabled, enable osc clock */
 
@@ -598,21 +612,21 @@ FCTP_FUNC void FCTP_OPT::setTX(FLEXCAN_PINS pin) {
 FCTP_FUNC void FCTP_OPT::setRX(FLEXCAN_PINS pin) {
 #if defined(__IMXRT1062__)
   /* DAISY REGISTER CAN3
-    00 GPIO_EMC_37_ALT9 â€” Selecting Pad: GPIO_EMC_37 for Mode: ALT9
-    01 GPIO_AD_B0_15_ALT8 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
-    10 GPIO_AD_B0_11_ALT8 â€” Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
+    00 GPIO_EMC_37_ALT9 Ã¢â‚¬â€ Selecting Pad: GPIO_EMC_37 for Mode: ALT9
+    01 GPIO_AD_B0_15_ALT8 Ã¢â‚¬â€ Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
+    10 GPIO_AD_B0_11_ALT8 Ã¢â‚¬â€ Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
   */
   /* DAISY REGISTER CAN2
-    00 GPIO_EMC_10_ALT3 â€” Selecting Pad: GPIO_EMC_10 for Mode: ALT3
-    01 GPIO_AD_B0_03_ALT0 â€” Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
-    10 GPIO_AD_B0_15_ALT6 â€” Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
-    11 GPIO_B1_09_ALT6 â€” Selecting Pad: GPIO_B1_09 for Mode: ALT6
+    00 GPIO_EMC_10_ALT3 Ã¢â‚¬â€ Selecting Pad: GPIO_EMC_10 for Mode: ALT3
+    01 GPIO_AD_B0_03_ALT0 Ã¢â‚¬â€ Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
+    10 GPIO_AD_B0_15_ALT6 Ã¢â‚¬â€ Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
+    11 GPIO_B1_09_ALT6 Ã¢â‚¬â€ Selecting Pad: GPIO_B1_09 for Mode: ALT6
   */
   /* DAISY REGISTER CAN1
-    00 GPIO_SD_B1_03_ALT4 â€” Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
-    01 GPIO_EMC_18_ALT3 â€” Selecting Pad: GPIO_EMC_18 for Mode: ALT3
-    10 GPIO_AD_B1_09_ALT2 â€” Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
-    11 GPIO_B0_03_ALT2 â€” Selecting Pad: GPIO_B0_03 for Mode: ALT2
+    00 GPIO_SD_B1_03_ALT4 Ã¢â‚¬â€ Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
+    01 GPIO_EMC_18_ALT3 Ã¢â‚¬â€ Selecting Pad: GPIO_EMC_18 for Mode: ALT3
+    10 GPIO_AD_B1_09_ALT2 Ã¢â‚¬â€ Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
+    11 GPIO_B0_03_ALT2 Ã¢â‚¬â€ Selecting Pad: GPIO_B0_03 for Mode: ALT2
   */
   if ( _bus == CAN3 ) {
     if ( pin == DEF ) {
@@ -1130,7 +1144,16 @@ FCTP_FUNC void FCTP_OPT::mbCallbacks(const FLEXCAN_MAILBOX &mb_num, const CAN_me
 }
 
 FCTP_FUNC void FCTP_OPT::struct2queueRx(const CAN_message_t &msg) {
-  if ( !isEventsUsed ) {	
+  CANListener *thisListener;
+  CAN_message_t cl = msg;
+  for (uint8_t listenerPos = 0; listenerPos < SIZE_LISTENERS; listenerPos++) {
+    thisListener = listener[listenerPos];
+    if (thisListener != nullptr) {
+      if (thisListener->callbacksActive & (1UL << cl.mb)) thisListener->frameHandler (cl, cl.mb, cl.bus);
+      if (thisListener->generalCallbackActive) thisListener->frameHandler (cl, -1, cl.bus);
+    }
+  }
+  if ( !isEventsUsed ) {
     mbCallbacks((FLEXCAN_MAILBOX)msg.mb, msg);	
     return;	
   }
@@ -1238,7 +1261,6 @@ FCTP_FUNC void FCTP_OPT::flexcan_interrupt() {
     }
 
     else if ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_TX_INACTIVE ) {
-
       msg.flags.extended = (bool)(code & (1UL << 21));
       msg.id = (mbxAddr[1] & 0x1FFFFFFF) >> ((msg.flags.extended) ? 0 : 18);
       if ( FLEXCAN_get_code(code) == FLEXCAN_MB_CODE_RX_OVERRUN ) msg.flags.overrun = 1;
@@ -1273,7 +1295,6 @@ FCTP_FUNC void FCTP_OPT::flexcan_interrupt() {
       else {
         writeIFLAGBit(mb_num); /* just clear IFLAG if no TX queues exist */
       }
-
     }
   }
   FLEXCANb_ESR1(_bus) |= FLEXCANb_ESR1(_bus);
@@ -1660,6 +1681,27 @@ FCTP_FUNC void FCTP_OPT::enableLoopBack(bool yes) {
     FLEXCANb_CTRL1(_bus) &= ~(1UL << 12);	
   }	
   FLEXCAN_ExitFreezeMode();	
+}
+
+FCTP_FUNC bool FCTP_OPT::attachObj (CANListener *listener) {
+  for (uint8_t i = 0; i < SIZE_LISTENERS; i++) {
+    if (this->listener[i] == nullptr) {
+      this->listener[i] = listener;
+      listener->callbacksActive = 0;
+      return true;
+    }
+  }
+  return false;
+}
+
+FCTP_FUNC bool FCTP_OPT::detachObj (CANListener *listener) {
+  for (uint8_t i = 0; i < SIZE_LISTENERS; i++) {
+    if (this->listener[i] == listener) {
+      this->listener[i] = nullptr;
+      return true;
+    }
+  }
+  return false;
 }
 
 extern void __attribute__((weak)) ext_output1(const CAN_message_t &msg);
