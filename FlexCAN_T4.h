@@ -266,6 +266,7 @@ typedef enum FLEXCAN_TXQUEUE_TABLE {
 
 typedef enum CAN_DEV_TABLE {
 #if defined(__IMXRT1062__)
+  CAN0 = (uint32_t)0x0,
   CAN1 = (uint32_t)0x401D0000,
   CAN2 = (uint32_t)0x401D4000,
   CAN3 = (uint32_t)0x401D8000
@@ -273,6 +274,8 @@ typedef enum CAN_DEV_TABLE {
 #if defined(__MK20DX256__) || defined(__MK64FX512__) || defined(__MK66FX1M0__)
   CAN0 = (uint32_t)0x40024000,
   CAN1 = (uint32_t)0x400A4000,
+  CAN2 = (uint32_t)0x0,
+  CAN3 = (uint32_t)0x0
 #endif
 } CAN_DEV_TABLE;
 
@@ -283,6 +286,21 @@ typedef enum CAN_DEV_TABLE {
 #define FCTPFD_CLASS template<CAN_DEV_TABLE _bus, FLEXCAN_RXQUEUE_TABLE _rxSize = RX_SIZE_16, FLEXCAN_TXQUEUE_TABLE _txSize = TX_SIZE_16>
 #define FCTPFD_FUNC template<CAN_DEV_TABLE _bus, FLEXCAN_RXQUEUE_TABLE _rxSize, FLEXCAN_TXQUEUE_TABLE _txSize>
 #define FCTPFD_OPT FlexCAN_T4FD<_bus, _rxSize, _txSize>
+
+#define SIZE_LISTENERS 4
+
+class CANListener {
+  public:
+    CANListener () { callbacksActive = 0; }
+    virtual bool frameHandler (CAN_message_t &frame, int mailbox, uint8_t controller) { return false; }
+    virtual void txHandler (int mailbox, uint8_t controller) {;} /* unused in Collin's library */
+    void attachMBHandler (uint64_t mailBox) { callbacksActive |= (1UL << mailBox); }
+    void detachMBHandler (uint64_t mailBox) { callbacksActive &= ~(1UL << mailBox); }
+    void attachGeneralHandler (void) { generalCallbackActive = 1; }
+    void detachGeneralHandler (void) { generalCallbackActive = 0; }
+    uint64_t callbacksActive; // bitfield indicating which callbacks are installed (for object oriented callbacks only)
+    bool generalCallbackActive = 0;
+};
 
 class FlexCAN_T4_Base {
   public:
@@ -399,6 +417,9 @@ FCTPFD_CLASS class FlexCAN_T4FD : public FlexCAN_T4_Base {
 FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
   public:
     FlexCAN_T4();
+    CANListener *listener[SIZE_LISTENERS];
+    bool attachObj (CANListener *listener);
+    bool detachObj (CANListener *listener);
     bool isFD() { return 0; }
     void begin();
     uint32_t getBaudRate() { return currentBitrate; }
