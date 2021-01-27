@@ -323,7 +323,7 @@ T Circular_Buffer<T,_size,multi>::pop_back() {
   if ( _available ) {
     if ( _available ) _available--;
     tail = ((tail - 1)&(2*_size-1));
-    return _cbuf[((tail)&(_size-1))];
+    return _cbuf[((tail - 1)&(_size-1))];
   }
   return -1;
 }
