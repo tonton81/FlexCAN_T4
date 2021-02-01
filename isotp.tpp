@@ -57,7 +57,7 @@ ISOTP_FUNC void ISOTP_OPT::write(const ISOTP_data &config, const uint8_t *buf, u
   msg.id = config.id;
   msg.len = config.len;
   msg.flags.extended = config.flags.extended;
-  msg.buf[0] = (1U << 4) | (uint16_t)size >> 4;
+  msg.buf[0] = (1U << 4) | size >> 8;
   msg.buf[1] = (uint8_t)size;
   memmove(&msg.buf[2], &buf[0], 6);
   _isotp_busToWrite->write(msg);
@@ -77,7 +77,7 @@ ISOTP_FUNC void ISOTP_OPT::write(const ISOTP_data &config, const uint8_t *buf, u
 ISOTP_FUNC void ISOTP_OPT::_process_frame_data(const CAN_message_t &msg) {
   if ( !isotp_enabled ) return;
   if ( (msg.buf[0] >> 4) == 1 ) { /* first frame */
-    if ( (((((uint16_t)msg.buf[0] & 0xF) << 4) | msg.buf[1]) + 9) >= (int)_max_length ) return; /* ISOTP message too large for local buffer */
+    if ( (((((uint16_t)msg.buf[0] & 0xF) << 8) | msg.buf[1]) + 9) >= (int)_max_length ) return; /* ISOTP message too large for local buffer */
     uint8_t data[_max_length] = { (uint8_t)(msg.id >> 24), (uint8_t)(msg.id >> 16), (uint8_t)(msg.id >> 8), (uint8_t)msg.id, 0, 6, 0 };
     memmove(data + 7, &msg.buf[0], 8); /* ID, ID, ID, ID, QPOS, QPOS, SEQUENCE: TOTAL 7 */
     _rx_slots.findRemove(data, sizeof(data), 0, 1, 2, 3, 3);
@@ -87,7 +87,7 @@ ISOTP_FUNC void ISOTP_OPT::_process_frame_data(const CAN_message_t &msg) {
   if ( (msg.buf[0] >> 4) == 2 ) { /* consecutive frames */
     uint8_t data[_max_length] = { (uint8_t)(msg.id >> 24), (uint8_t)(msg.id >> 16), (uint8_t)(msg.id >> 8), (uint8_t)msg.id };
     if ( _rx_slots.find(data, sizeof(data), 0, 1, 2, 3, 3) ) {
-      int pos = (((uint16_t)data[4] & 0xF) | data[5]);
+      int pos = ((((uint16_t)data[4] & 0xF) << 8) | data[5]);
       int new_pos = pos + 7;
       data[4] = new_pos >> 8;
       data[5] = new_pos;
@@ -100,11 +100,11 @@ ISOTP_FUNC void ISOTP_OPT::_process_frame_data(const CAN_message_t &msg) {
       data[6] = msg.buf[0] & 0xF;
       memmove(data + 9 + pos, &msg.buf[1], 7);
       _rx_slots.replace(data, sizeof(data), 0, 1, 2, 3, 3);
-      if ( (((((uint16_t)data[7] & 0xF) << 4) | data[8]) - pos) <= 7 ) {
+      if ( (((((uint16_t)data[7] & 0xF) << 8) | data[8]) - pos) <= 7 ) {
         _rx_slots.findRemove(data, sizeof(data), 0, 1, 2, 3, 3);
         ISOTP_data config;
         config.id = ((uint32_t)(data[0] << 24) | data[1] << 16 | data[2] << 8 | data[3]);
-        config.len = ((((uint16_t)data[7] & 0xF) << 4) | data[8]);
+        config.len = ((((uint16_t)data[7] & 0xF) << 8) | data[8]);
         config.flags.extended = msg.flags.extended;
         if ( _ISOTP_OBJ->_isotp_handler ) _ISOTP_OBJ->_isotp_handler(config, data + 9);
       }
