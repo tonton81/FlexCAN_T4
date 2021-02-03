@@ -91,7 +91,14 @@ ISOTPSERVER_FUNC void ISOTPSERVER_OPT::_process_frame_data(const CAN_message_t &
     }
     if ( msg.buf[0] & (3U << 4) ) { /* flow control frame */
       if ( !msg.buf[1] ) { /* block size */
-        while ( send_next_frame() );
+        bool sent = 1;
+        while ( sent ) {
+          sent = send_next_frame();
+          if ( msg.buf[2] < 128 ) delay(msg.buf[2]);
+          else if ( msg.buf[2] == constrain(msg.buf[2], 0xF1, 0xF9) ) {
+            delayMicroseconds(map(msg.buf[2], 0xF1, 0xF9, 100, 900));
+          }
+        }
       }
       else {
         for ( int i = 0; i < msg.buf[1]; i++ ) {
