@@ -33,7 +33,7 @@
 
 #include "Arduino.h"
 #include "circular_buffer.h"
-#include "isotp.h"
+#include "isotp_server.h"
 #include "FlexCAN_T4.h"
 
 typedef enum ISOTP_ID_TYPE {
@@ -57,6 +57,8 @@ static isotp_server_Base* _ISOTPSERVER_OBJ = nullptr;
 ISOTPSERVER_CLASS class isotp_server : public isotp_server_Base {
   public:
     isotp_server();
+    void begin() { enable(); }
+    void enable(bool yes = 1) { isotp_enabled = yes; }
     void setWriteBus(FlexCAN_T4_Base* _busWritePtr) { _isotp_server_busToWrite = _busWritePtr; }
 
   private:
@@ -67,6 +69,7 @@ ISOTPSERVER_CLASS class isotp_server : public isotp_server_Base {
     volatile uint8_t request_size = 4;
     volatile uint16_t index_pos = 0;
     volatile uint8_t index_sequence = 1;
+    volatile bool isotp_enabled = 0;
 };
 
 
