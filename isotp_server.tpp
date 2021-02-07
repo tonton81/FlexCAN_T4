@@ -33,8 +33,12 @@
 #include "Arduino.h"
 
 
+int isotp_server_Base::buffer_hosts = 0;
+
+
 ISOTPSERVER_FUNC ISOTPSERVER_OPT::isotp_server() {
-  _ISOTPSERVER_OBJ = this; 
+  _ISOTPSERVER_OBJ[isotp_server_Base::buffer_hosts] = this;
+  isotp_server_Base::buffer_hosts++; 
   for ( int i = 3; i > -1; i-- ) {
     if ( ((request >> (i * 8)) & 0xFF) ) break;
     request_size--;
@@ -52,7 +56,7 @@ ISOTPSERVER_FUNC void ISOTPSERVER_OPT::send_first_frame() {
   msg.len = 8;
   memmove(&msg.buf[0], &header[0], 2);
   memmove(&msg.buf[2], &buffer[0], 6);
-  _isotp_server_busToWrite->write(msg);
+  if ( _isotp_server_busToWrite ) _isotp_server_busToWrite->write(msg);
 }
 
 
@@ -66,7 +70,7 @@ ISOTPSERVER_FUNC bool ISOTPSERVER_OPT::send_next_frame() {
   memmove(&msg.buf[1], &buffer[index_pos], constrain((len - index_pos), 1, 7));
   index_sequence++;
   if ((len - index_pos) < 7) for ( int i = (len - index_pos + 1); i < 8; i++ ) msg.buf[i] = 0xA5; 
-  _isotp_server_busToWrite->write(msg);
+  if ( _isotp_server_busToWrite ) _isotp_server_busToWrite->write(msg);
   index_pos += 7;
   return 1;
 }
@@ -116,7 +120,7 @@ ISOTPSERVER_FUNC void ISOTPSERVER_OPT::_process_frame_data(const CAN_message_t &
 
 
 void ext_output3(const CAN_message_t &msg) {
-  _ISOTPSERVER_OBJ->_process_frame_data(msg);
+  for ( int i = 0; i < isotp_server_Base::buffer_hosts; i++ ) if ( _ISOTPSERVER_OBJ[i] ) _ISOTPSERVER_OBJ[i]->_process_frame_data(msg);
 }
 
 

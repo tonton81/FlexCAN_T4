@@ -45,14 +45,15 @@ typedef enum ISOTP_ID_TYPE {
 #define ISOTPSERVER_FUNC template<uint32_t canid, ISOTP_ID_TYPE extended, uint32_t request, uint8_t *buffer, uint16_t len>
 #define ISOTPSERVER_OPT isotp_server<canid, extended, request, buffer, len>
 
-static FlexCAN_T4_Base* _isotp_server_busToWrite = nullptr;
 
 class isotp_server_Base {
   public:
     virtual void _process_frame_data(const CAN_message_t &msg) = 0;
+    static int buffer_hosts;
+    FlexCAN_T4_Base* _isotp_server_busToWrite = nullptr;
 };
 
-static isotp_server_Base* _ISOTPSERVER_OBJ = nullptr;
+static isotp_server_Base* _ISOTPSERVER_OBJ[16] = { nullptr };
 
 ISOTPSERVER_CLASS class isotp_server : public isotp_server_Base {
   public:
