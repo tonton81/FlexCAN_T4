@@ -61,6 +61,7 @@ ISOTPSERVER_CLASS class isotp_server : public isotp_server_Base {
     void begin() { enable(); }
     void enable(bool yes = 1) { isotp_enabled = yes; }
     void setWriteBus(FlexCAN_T4_Base* _busWritePtr) { _isotp_server_busToWrite = _busWritePtr; }
+    void setPadding(uint8_t _byte) { padding_value = _byte; }
 
   private:
     void _process_frame_data(const CAN_message_t &msg);
@@ -71,6 +72,7 @@ ISOTPSERVER_CLASS class isotp_server : public isotp_server_Base {
     volatile uint16_t index_pos = 0;
     volatile uint8_t index_sequence = 1;
     volatile bool isotp_enabled = 0;
+    uint8_t padding_value = 0xA5;
 };
 
 

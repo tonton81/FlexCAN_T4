@@ -53,6 +53,13 @@ ISOTPSERVER_FUNC void ISOTPSERVER_OPT::send_first_frame() {
   CAN_message_t msg;
   msg.id = canid;
   msg.flags.extended = extended;
+  if ( len <= 7 ) {
+    memset(&msg.buf[0], padding_value, 8);
+    msg.buf[0] = len;
+    memmove(&msg.buf[1], &buffer[0], len);
+    if ( _isotp_server_busToWrite ) _isotp_server_busToWrite->write(msg);
+    return;
+  }
   msg.len = 8;
   memmove(&msg.buf[0], &header[0], 2);
   memmove(&msg.buf[2], &buffer[0], 6);

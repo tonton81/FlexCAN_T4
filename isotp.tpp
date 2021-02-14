@@ -49,6 +49,11 @@ ISOTP_FUNC void ISOTP_OPT::sendFlowControl(const ISOTP_data &config) {
   }
   msg.buf[2] = separation_time;
   _isotp_busToWrite->write(msg);
+
+#if defined(ARDUINO_ARCH_ESP32) //ESP32
+  vTaskDelay(500);
+#endif
+
 }
 
 
@@ -61,7 +66,14 @@ ISOTP_FUNC void ISOTP_OPT::write(const ISOTP_data &config, const uint8_t *buf, u
   msg.buf[1] = (uint8_t)size;
   memmove(&msg.buf[2], &buf[0], 6);
   _isotp_busToWrite->write(msg);
+
+	
+#if defined(TEENSYDUINO) // Teensy
   delay(constrain(config.separation_time, 0, 127));
+#elif defined(ARDUINO_ARCH_ESP32) //ESP32
+  vTaskDelay(constrain(config.separation_time, 0, 127));
+#endif
+
   for ( int sent_bytes = 6, difference = 7, counter = 1; sent_bytes < size; sent_bytes += 7, counter++ ) {
     msg.buf[0] = (2U << 4) | (counter & 0xF);
     difference = constrain((size - sent_bytes), 1, 7);
@@ -69,13 +81,28 @@ ISOTP_FUNC void ISOTP_OPT::write(const ISOTP_data &config, const uint8_t *buf, u
     for ( int i = 0; i < (7 - difference); i++ ) msg.buf[difference + i + 1] = padding_value;
     if ( !config.flags.usePadding && difference < 7 ) msg.len = difference + 1;
     _isotp_busToWrite->write(msg);
+
+#if defined(TEENSYDUINO) // Teensy
     delay(constrain(config.separation_time, 0, 127));
+#elif defined(ARDUINO_ARCH_ESP32) //ESP32
+    vTaskDelay(constrain(config.separation_time, 0, 127));
+#endif
+
   }
 }
 
 
 ISOTP_FUNC void ISOTP_OPT::_process_frame_data(const CAN_message_t &msg) {
   if ( !isotp_enabled ) return;
+
+  if ( msg.buf[0] <= 7 ) { /* single frame */
+    ISOTP_data config;
+    config.id = msg.id;
+    config.len = msg.buf[0];
+    config.flags.extended = msg.flags.extended;
+    if ( _ISOTP_OBJ->_isotp_handler ) _ISOTP_OBJ->_isotp_handler(config, msg.buf + 1);
+  }
+
   if ( (msg.buf[0] >> 4) == 1 ) { /* first frame */
     if ( (((((uint16_t)msg.buf[0] & 0xF) << 8) | msg.buf[1]) + 9) >= (int)_max_length ) return; /* ISOTP message too large for local buffer */
     uint8_t data[_max_length] = { (uint8_t)(msg.id >> 24), (uint8_t)(msg.id >> 16), (uint8_t)(msg.id >> 8), (uint8_t)msg.id, 0, 6, 0 };
@@ -88,11 +115,9 @@ ISOTP_FUNC void ISOTP_OPT::_process_frame_data(const CAN_message_t &msg) {
     uint8_t data[_max_length] = { (uint8_t)(msg.id >> 24), (uint8_t)(msg.id >> 16), (uint8_t)(msg.id >> 8), (uint8_t)msg.id };
     if ( _rx_slots.find(data, sizeof(data), 0, 1, 2, 3, 3) ) {
       int pos = ((((uint16_t)data[4] & 0xF) << 8) | data[5]);
-      int new_pos = pos + 7;
-      data[4] = new_pos >> 8;
-      data[5] = new_pos;
-      data[6] += 1;
-      if ( data[6] > 15 ) data[6] = 0;
+      data[4] = (pos + 7) >> 8;
+      data[5] = (pos + 7);
+      data[6] = (data[6] + 1) & 0xF; /* store only last 4 bits of sequence 0x0 -> 0xF */
       if ( (msg.buf[0] & 0xF) != data[6] ) { /* sequence match fail */
         _rx_slots.findRemove(data, sizeof(data), 0, 1, 2, 3, 3);
         return;
