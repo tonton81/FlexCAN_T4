@@ -132,10 +132,13 @@ ISOTP_FUNC void ISOTP_OPT::_process_frame_data(const CAN_message_t &msg) {
         config.len = ((((uint16_t)data[7] & 0xF) << 8) | data[8]);
         config.flags.extended = msg.flags.extended;
         if ( _ISOTP_OBJ->_isotp_handler ) _ISOTP_OBJ->_isotp_handler(config, data + 9);
+        ext_isotp_output1(config, data + 9);
       }
     }
   } /* consecutive frames */
 }
+
+extern void __attribute__((weak)) ext_isotp_output1(const ISOTP_data &config, const uint8_t *buf);
 
 void ext_output2(const CAN_message_t &msg) {
   _ISOTP_OBJ->_process_frame_data(msg);
