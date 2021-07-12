@@ -34,6 +34,24 @@
 #include "circular_buffer.h"
 #include "imxrt_flexcan.h"
 
+typedef struct CAN_error_t {
+  char state[30] = "Idle";
+  bool BIT1_ERR = 0;
+  bool BIT0_ERR = 0;
+  bool ACK_ERR = 0;
+  bool CRC_ERR = 0;
+  bool FRM_ERR = 0;
+  bool STF_ERR = 0;
+  bool TX_WRN = 0;
+  bool RX_WRN = 0;
+  char FLT_CONF[14] = { 0 };
+  uint8_t RX_ERR_COUNTER = 0;
+  uint8_t TX_ERR_COUNTER = 0;
+  uint32_t ESR1 = 0;
+  uint16_t ECR = 0;
+} CAN_error_t;
+
+
 typedef struct CAN_message_t {
   uint32_t id = 0;          // can identifier
   uint16_t timestamp = 0;   // FlexCAN time when message arrived
@@ -490,6 +508,7 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     uint8_t getFirstTxBoxSize(){ return 8; }
     void FLEXCAN_ExitFreezeMode();
     void FLEXCAN_EnterFreezeMode();
+    bool error(CAN_error_t &error, bool printDetails);
     uint32_t getRXQueueCount() { return rxBuffer.size(); }
     uint32_t getTXQueueCount() { return txBuffer.size(); }
 
@@ -501,6 +520,9 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     void flexcanFD_interrupt() { ; } // dummy placeholder to satisfy base class
     Circular_Buffer<uint8_t, (uint32_t)_rxSize, sizeof(CAN_message_t)> rxBuffer;
     Circular_Buffer<uint8_t, (uint32_t)_txSize, sizeof(CAN_message_t)> txBuffer;
+    Circular_Buffer<uint32_t, 16> busESR1;
+    Circular_Buffer<uint16_t, 16> busECR;
+    void printErrors(const CAN_error_t &error);
 #if defined(__IMXRT1062__)
     uint32_t getClock();
 #endif
