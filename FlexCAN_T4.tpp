@@ -612,21 +612,21 @@ FCTP_FUNC void FCTP_OPT::setTX(FLEXCAN_PINS pin) {
 FCTP_FUNC void FCTP_OPT::setRX(FLEXCAN_PINS pin) {
 #if defined(__IMXRT1062__)
   /* DAISY REGISTER CAN3
-    00 GPIO_EMC_37_ALT9 Ã¢â‚¬â€ Selecting Pad: GPIO_EMC_37 for Mode: ALT9
-    01 GPIO_AD_B0_15_ALT8 Ã¢â‚¬â€ Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
-    10 GPIO_AD_B0_11_ALT8 Ã¢â‚¬â€ Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
+    00 GPIO_EMC_37_ALT9 Selecting Pad: GPIO_EMC_37 for Mode: ALT9
+    01 GPIO_AD_B0_15_ALT8 Selecting Pad: GPIO_AD_B0_15 for Mode: ALT8
+    10 GPIO_AD_B0_11_ALT8 Selecting Pad: GPIO_AD_B0_11 for Mode: ALT8
   */
   /* DAISY REGISTER CAN2
-    00 GPIO_EMC_10_ALT3 Ã¢â‚¬â€ Selecting Pad: GPIO_EMC_10 for Mode: ALT3
-    01 GPIO_AD_B0_03_ALT0 Ã¢â‚¬â€ Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
-    10 GPIO_AD_B0_15_ALT6 Ã¢â‚¬â€ Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
-    11 GPIO_B1_09_ALT6 Ã¢â‚¬â€ Selecting Pad: GPIO_B1_09 for Mode: ALT6
+    00 GPIO_EMC_10_ALT3 Selecting Pad: GPIO_EMC_10 for Mode: ALT3
+    01 GPIO_AD_B0_03_ALT0 Selecting Pad: GPIO_AD_B0_03 for Mode: ALT0
+    10 GPIO_AD_B0_15_ALT6 Selecting Pad: GPIO_AD_B0_15 for Mode: ALT6
+    11 GPIO_B1_09_ALT6 Selecting Pad: GPIO_B1_09 for Mode: ALT6
   */
   /* DAISY REGISTER CAN1
-    00 GPIO_SD_B1_03_ALT4 Ã¢â‚¬â€ Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
-    01 GPIO_EMC_18_ALT3 Ã¢â‚¬â€ Selecting Pad: GPIO_EMC_18 for Mode: ALT3
-    10 GPIO_AD_B1_09_ALT2 Ã¢â‚¬â€ Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
-    11 GPIO_B0_03_ALT2 Ã¢â‚¬â€ Selecting Pad: GPIO_B0_03 for Mode: ALT2
+    00 GPIO_SD_B1_03_ALT4 Selecting Pad: GPIO_SD_B1_03 for Mode: ALT4
+    01 GPIO_EMC_18_ALT3 Selecting Pad: GPIO_EMC_18 for Mode: ALT3
+    10 GPIO_AD_B1_09_ALT2 Selecting Pad: GPIO_AD_B1_09 for Mode: ALT2
+    11 GPIO_B0_03_ALT2 Selecting Pad: GPIO_B0_03 for Mode: ALT2
   */
   if ( _bus == CAN3 ) {
     if ( pin == DEF ) {
@@ -1297,8 +1297,62 @@ FCTP_FUNC void FCTP_OPT::flexcan_interrupt() {
       }
     }
   }
-  FLEXCANb_ESR1(_bus) |= FLEXCANb_ESR1(_bus);
+
+  uint32_t esr1 = FLEXCANb_ESR1(_bus);
+  static uint32_t last_esr1 = 0;
+  if ( (last_esr1 & 0x7FFBF) != (esr1 & 0x7FFBF) ) {
+    if ( busESR1.size() < busESR1.capacity() ) {
+      busESR1.write(esr1);
+      busECR.write(FLEXCANb_ECR(_bus));
+      last_esr1 = esr1;
+    }
+  }
+  FLEXCANb_ESR1(_bus) |= esr1;
+
   asm volatile ("dsb");	
+}
+
+FCTP_FUNC bool FCTP_OPT::error(CAN_error_t &error, bool printDetails) {
+  if ( !busESR1.size() ) return 0;
+  error.ESR1 = busESR1.read();
+  error.ECR = busECR.read();
+
+  if ( (error.ESR1 & 0x400C8) == 0x40080 ) strncpy((char*)error.state, "Idle", (sizeof(error.state) - 1));
+  else if ( (error.ESR1 & 0x400C8) == 0x0 ) strncpy((char*)error.state, "Not synchronized to CAN bus", (sizeof(error.state) - 1));
+  else if ( (error.ESR1 & 0x400C8) == 0x40040 ) strncpy((char*)error.state, "Transmitting", (sizeof(error.state) - 1));
+  else if ( (error.ESR1 & 0x400C8) == 0x40008 ) strncpy((char*)error.state, "Receiving", (sizeof(error.state) - 1));
+
+  error.BIT1_ERR = (error.ESR1 & (1UL << 15)) ? 1 : 0;
+  error.BIT0_ERR = (error.ESR1 & (1UL << 14)) ? 1 : 0;
+  error.ACK_ERR = (error.ESR1 & (1UL << 13)) ? 1 : 0;
+  error.CRC_ERR = (error.ESR1 & (1UL << 12)) ? 1 : 0;
+  error.FRM_ERR = (error.ESR1 & (1UL << 11)) ? 1 : 0;
+  error.STF_ERR = (error.ESR1 & (1UL << 10)) ? 1 : 0;
+  error.TX_WRN = (error.ESR1 & (1UL << 9)) ? 1 : 0;
+  error.RX_WRN = (error.ESR1 & (1UL << 8)) ? 1 : 0;
+
+  if ( (error.ESR1 & 0x30) == 0x0 ) strncpy((char*)error.FLT_CONF, "Error Active", (sizeof(error.FLT_CONF) - 1));
+  else if ( (error.ESR1 & 0x30) == 0x1 ) strncpy((char*)error.FLT_CONF, "Error Passive", (sizeof(error.FLT_CONF) - 1));
+  else strncpy((char*)error.FLT_CONF, "Bus off", (sizeof(error.FLT_CONF) - 1));
+
+  error.RX_ERR_COUNTER = (uint8_t)(error.ECR >> 8);
+  error.TX_ERR_COUNTER = (uint8_t)error.ECR;
+
+  if ( printDetails ) printErrors(error);
+  return 1;
+}
+
+FCTP_FUNC void FCTP_OPT::printErrors(const CAN_error_t &error) {
+  Serial.print("FlexCAN State: "); Serial.print((char*)error.state);
+  if ( error.BIT1_ERR ) Serial.print(", BIT1_ERR");
+  if ( error.BIT0_ERR ) Serial.print(", BIT0_ERR");
+  if ( error.ACK_ERR ) Serial.print(", ACK_ERR");
+  if ( error.CRC_ERR ) Serial.print(", CRC_ERR");
+  if ( error.FRM_ERR ) Serial.print(", FRM_ERR");
+  if ( error.STF_ERR ) Serial.print(", STF_ERR");
+  if ( error.RX_WRN ) Serial.printf(", RX_WRN: %d", error.RX_ERR_COUNTER);
+  if ( error.TX_WRN ) Serial.printf(", TX_WRN: %d", error.TX_ERR_COUNTER);
+  Serial.printf(", FLT_CONF: %s\n", (char*)error.FLT_CONF);
 }
 
 FCTP_FUNC void FCTP_OPT::enableDMA(bool state) { /* only CAN3 supports this on 1062, untested */
