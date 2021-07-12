@@ -1314,6 +1314,7 @@ FCTP_FUNC void FCTP_OPT::flexcan_interrupt() {
 
 FCTP_FUNC bool FCTP_OPT::error(CAN_error_t &error, bool printDetails) {
   if ( !busESR1.size() ) return 0;
+  NVIC_DISABLE_IRQ(nvicIrq);
   error.ESR1 = busESR1.read();
   error.ECR = busECR.read();
 
@@ -1339,6 +1340,7 @@ FCTP_FUNC bool FCTP_OPT::error(CAN_error_t &error, bool printDetails) {
   error.TX_ERR_COUNTER = (uint8_t)error.ECR;
 
   if ( printDetails ) printErrors(error);
+  NVIC_ENABLE_IRQ(nvicIrq);
   return 1;
 }
 
