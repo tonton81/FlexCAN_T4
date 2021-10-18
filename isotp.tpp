@@ -60,11 +60,11 @@ ISOTP_FUNC void ISOTP_OPT::sendFlowControl(const ISOTP_data &config) {
 ISOTP_FUNC void ISOTP_OPT::write(const ISOTP_data &config, const uint8_t *buf, uint16_t size) {
   CAN_message_t msg;
   msg.id = config.id;
-  msg.len = config.len;
+  msg.len = (size < 6) ? size + 2 : 8;
   msg.flags.extended = config.flags.extended;
   msg.buf[0] = (1U << 4) | size >> 8;
   msg.buf[1] = (uint8_t)size;
-  memmove(&msg.buf[2], &buf[0], 6);
+  memmove(&msg.buf[2], &buf[0], (size < 6) ? size : 6);
   _isotp_busToWrite->write(msg);
 
 	
