@@ -101,7 +101,7 @@ ISOTP_CLASS class isotp : public isotp_Base {
     void enable(bool yes = 1) { isotp_enabled = yes; }
     void setPadding(uint8_t _byte) { padding_value = _byte; }
     void onReceive(_isotp_cb_ptr handler) { _ISOTP_OBJ->_isotp_handler = handler; }
-    void write(const ISOTP_data &config, const uint8_t *buf) {write(config, buf, config.len); };
+    void write(const ISOTP_data &config, const uint8_t *buf) { write(config, buf, config.len); };
     void write(const ISOTP_data &config, const uint8_t *buf, uint16_t size);
     void write(const ISOTP_data &config, const char *buf) { write(config, (const uint8_t*)buf, config.len); }
     void write(const ISOTP_data &config, const char *buf, uint16_t size) { write(config, (const uint8_t*)buf, size); }
