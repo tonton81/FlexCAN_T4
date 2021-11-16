@@ -1089,14 +1089,14 @@ FCTP_FUNC uint64_t FCTP_OPT::events() {
     if ( frame.mb == -1 ) {
       for (uint8_t i = mailboxOffset(); i < FLEXCANb_MAXMB_SIZE(_bus); i++) {
         if ( FLEXCAN_get_code(FLEXCANb_MBn_CS(_bus, i)) == FLEXCAN_MB_CODE_TX_INACTIVE ) {
-          Serial.print("DBG NORM: "); Serial.println(frame.mb);
+          //Serial.print("DBG NORM: "); Serial.println(frame.mb);
           writeTxMailbox(i, frame);
           txBuffer.pop_front();
         }
       }
     }
     else if ( FLEXCAN_get_code(FLEXCANb_MBn_CS(_bus, frame.mb)) == FLEXCAN_MB_CODE_TX_INACTIVE ) {
-      Serial.print("DBG SEQ: "); Serial.println(frame.mb);
+      //Serial.print("DBG SEQ: "); Serial.println(frame.mb);
       writeTxMailbox(frame.mb, frame);
       txBuffer.pop_front();
     }
