@@ -106,6 +106,8 @@ extern void __attribute__((weak)) ext_isotp_output1(const ISOTP_data &config, co
 ISOTP_FUNC void ISOTP_OPT::_process_frame_data(const CAN_message_t &msg) {
   if ( !isotp_enabled ) return;
 
+  if ( msg.bus != readBusNumber ) return;
+
   if ( msg.buf[0] <= 7 ) { /* single frame */
     ISOTP_data config;
     config.id = msg.id;

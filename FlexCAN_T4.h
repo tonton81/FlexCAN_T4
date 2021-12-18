@@ -329,6 +329,9 @@ class FlexCAN_T4_Base {
     virtual int write(const CAN_message_t &msg) = 0;
     virtual bool isFD() = 0;
     virtual uint8_t getFirstTxBoxSize();
+    virtual uint8_t getBusNumber();
+  protected:
+    uint8_t busNumber;
 };
 
 #if defined(__IMXRT1062__)
@@ -391,6 +394,7 @@ FCTPFD_CLASS class FlexCAN_T4FD : public FlexCAN_T4_Base {
     void disableDMA() { enableDMA(0); }
     uint8_t getFirstTxBoxSize();
     void setMBFilterProcessing(FLEXCAN_MAILBOX mb_num, uint32_t filter_id, uint32_t calculated_mask);
+    uint8_t getBusNumber() { return busNumber; }
 
   private:
     uint64_t readIFLAG() { return (((uint64_t)FLEXCANb_IFLAG2(_bus) << 32) | FLEXCANb_IFLAG1(_bus)); }
@@ -416,7 +420,6 @@ FCTPFD_CLASS class FlexCAN_T4FD : public FlexCAN_T4_Base {
     void softReset();
     void writeIMASK(uint64_t value);
     void writeIMASKBit(uint8_t mb_num, bool set = 1);
-    uint8_t busNumber;
     uint8_t mailbox_reader_increment = 0;
     uint32_t nvicIrq = 0; 
     uint8_t dlc_to_len(uint8_t val); 
@@ -511,6 +514,7 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     bool error(CAN_error_t &error, bool printDetails);
     uint32_t getRXQueueCount() { return rxBuffer.size(); }
     uint32_t getTXQueueCount() { return txBuffer.size(); }
+    uint8_t getBusNumber() { return busNumber; }
 
   private:
     void setMBFilterProcessing(FLEXCAN_MAILBOX mb_num, uint32_t filter_id, uint32_t calculated_mask);
@@ -551,7 +555,6 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     uint32_t nvicIrq = 0; 
     uint32_t currentBitrate = 0UL;
     uint8_t mailbox_reader_increment = 0;
-    uint8_t busNumber;
     void mbCallbacks(const FLEXCAN_MAILBOX &mb_num, const CAN_message_t &msg);
 };
 
