@@ -9,19 +9,19 @@ void setup(void) {
   Can0.setBaudRate(250000);
   Can0.setMaxMB(NUM_TX_MAILBOXES + NUM_RX_MAILBOXES);
   for (int i = 0; i<NUM_RX_MAILBOXES; i++){
-    Can0.setMB(i,RX,EXT);
+    Can0.setMB((FLEXCAN_MAILBOX)i,RX,EXT);
   }
   for (int i = NUM_RX_MAILBOXES; i<(NUM_TX_MAILBOXES + NUM_RX_MAILBOXES); i++){
-    Can0.setMB(i,TX,EXT);
+    Can0.setMB((FLEXCAN_MAILBOX)i,TX,EXT);
   }
   Can0.setMBFilter(REJECT_ALL);
   Can0.enableMBInterrupts();
   Can0.onReceive(MB0,canSniff);
   Can0.onReceive(MB1,canSniff);
   Can0.onReceive(MB2,canSniff);
-  Can0.setMBFilterProcessing(MB0,0x00,0xFF);
-  Can0.setMBFilterProcessing(MB1,0x03,0xFF);
-  Can0.setMBFilterProcessing(MB2,0x0B,0xFF);
+  Can0.setMBUserFilter(MB0,0x00,0xFF);
+  Can0.setMBUserFilter(MB1,0x03,0xFF);
+  Can0.setMBUserFilter(MB2,0x0B,0xFF);
   Can0.mailboxStatus();
 }
 
