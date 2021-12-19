@@ -36,14 +36,17 @@
 #define FLEXCANb_MBn_WORD0(b, n)  (*(vuint32_t*)(b+0x88+n*0x10))
 #define FLEXCANb_MBn_WORD1(b, n)  (*(vuint32_t*)(b+0x8C+n*0x10))
 #define FLEXCANb_IDFLT_TAB(b, n)  (*(vuint32_t*)(b+0xE0+(n*4)))
-#define FLEXCANb_MAXMB_SIZE(b)    ((FLEXCANb_MCR(b)&0x3F)+1)
+#define FLEXCANb_MAXMB_SIZE(b)    ((FLEXCANb_MCR(b)&0x7F)+1)
 
 
 // CANFD (confirmed valid)
-#define FLEXCANb_FDCTRL(b)     (*(vuint32_t*)(b+0xC00))
+#define FLEXCANb_FDCTRL(b)    (*(vuint32_t*)(b+0xC00))
 #define FLEXCANb_FDCBT(b)     (*(vuint32_t*)(b+0xC04))
-#define FLEXCANb_CBT(b)     (*(vuint32_t*)(b+0x50))
+#define FLEXCANb_CBT(b)       (*(vuint32_t*)(b+0x50))
 #define FLEXCANb_ERFCR(b)     (*(vuint32_t*)(b+0xC0C))
+#define FLEXCANb_DBG1(b)      (*(vuint32_t*)(b+0x58))
+#define FLEXCANb_DBG2(b)      (*(vuint32_t*)(b+0x5C))
+
 
 
 
