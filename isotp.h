@@ -93,7 +93,18 @@ ISOTP_CLASS class isotp : public isotp_Base {
     isotp() { _ISOTP_OBJ = this; }
 
 #if defined(TEENSYDUINO) // Teensy
-    void setWriteBus(FlexCAN_T4_Base* _busWritePtr) { _isotp_busToWrite = _busWritePtr; }
+    void setWriteBus(FlexCAN_T4_Base* _busWritePtr) { 
+      _isotp_busToWrite = _busWritePtr; 
+      #if defined(__IMXRT1062__)
+        if ( _isotp_busToWrite == _CAN1 ) readBus = 1;    
+        if ( _isotp_busToWrite == _CAN2 ) readBus = 2;
+        if ( _isotp_busToWrite == _CAN3 ) readBus = 3;
+      #endif
+      #if defined(__MK20DX256__) || defined(__MK64FX512__) || defined(__MK66FX1M0__)
+        if ( _isotp_busToWrite == _CAN0 ) readBus = 0;    
+        if ( _isotp_busToWrite == _CAN1 ) readBus = 1;
+      #endif
+    }
 #elif defined(ARDUINO_ARCH_ESP32) //ESP32
     void setWriteBus(ESP32_CAN_Base* _busWritePtr) { _isotp_busToWrite = _busWritePtr; }
 #endif
@@ -110,6 +121,7 @@ ISOTP_CLASS class isotp : public isotp_Base {
     Circular_Buffer<uint8_t, _rxBanks, _max_length> _rx_slots;
     uint8_t padding_value = 0xA5;
     volatile bool isotp_enabled = 0;
+    uint8_t readBus = 1;
 };
 
 #include "isotp.tpp"
