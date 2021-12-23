@@ -85,6 +85,11 @@ ISOTPSERVER_FUNC bool ISOTPSERVER_OPT::send_next_frame() {
 
 ISOTPSERVER_FUNC void ISOTPSERVER_OPT::_process_frame_data(const CAN_message_t &msg) {
   if ( !isotp_enabled ) return;
+  
+  #if defined(TEENSYDUINO)
+    if ( msg.bus != readBus ) return;
+  #endif
+
   if ( msg.id == canid ) {
     CAN_message_t msgCopy = msg;
     uint8_t request_array[4] = { (uint8_t)(request >> 24), (uint8_t)(request >> 16), (uint8_t)(request >> 8), (uint8_t)(request) };
