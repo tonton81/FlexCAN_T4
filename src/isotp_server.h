@@ -31,7 +31,13 @@
 #if !defined(_ISOTP_SERVER_H_)
 #define _ISOTP_SERVER_H_
 
+#if defined(ARDUINO)
 #include "Arduino.h"
+#else
+#include "core/core.h"
+#include "random.h"
+#include "constrain.h"
+#endif
 #include "circular_buffer.h"
 #include "isotp_server.h"
 #include "FlexCAN_T4.h"
