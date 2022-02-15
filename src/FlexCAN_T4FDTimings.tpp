@@ -1,6 +1,12 @@
-#include <FlexCAN_T4.h>
+#include "FlexCAN_T4.h"
 #include "imxrt_flexcan.h"
+#if defined(ARDUINO)
 #include "Arduino.h"
+#else
+#include "core/core.h"
+#include "random.h"
+#include "constrain.h"
+#endif
 
 FCTPFD_FUNC bool FCTPFD_OPT::setBaudRateAdvanced(CANFD_timings_t config, uint8_t nominal_choice, uint8_t flexdata_choice, FLEXCAN_RXTX listen_only) {
   return setBaudRate(config, nominal_choice, flexdata_choice, listen_only, 1);

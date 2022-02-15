@@ -30,9 +30,16 @@
 #if !defined(_FLEXCAN_T4_H_)
 #define _FLEXCAN_T4_H_
 
+#if defined(ARDUINO)
 #include "Arduino.h"
+#else
+#include "core/core.h"
+#include "random.h"
+#include "constrain.h"
+#endif
 #include "circular_buffer.h"
 #include "imxrt_flexcan.h"
+#include "kinetis_flexcan.h"
 
 typedef struct CAN_error_t {
   char state[30] = "Idle";
@@ -470,6 +477,7 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     bool setMBUserFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t id2, uint32_t mask);
     bool setMBUserFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t id2, uint32_t id3, uint32_t mask);
     bool setMBUserFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t id2, uint32_t id3, uint32_t id4, uint32_t mask);
+    bool setMBManualFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t mask);
     void setMBFilter(FLEXCAN_FLTEN input); /* enable/disable traffic for all MBs (for individual masking) */
     void setMBFilter(FLEXCAN_MAILBOX mb_num, FLEXCAN_FLTEN input); /* set specific MB to accept/deny traffic */
     bool setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1); /* input 1 ID to be filtered */
@@ -490,6 +498,7 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     bool setFIFOUserFilter(uint8_t filter, uint32_t id1, uint32_t id2, uint32_t id3, uint32_t mask, const FLEXCAN_IDE &ide, const FLEXCAN_IDE &remote = NONE);
     bool setFIFOUserFilter(uint8_t filter, uint32_t id1, uint32_t id2, uint32_t id3, uint32_t id4, uint32_t mask, const FLEXCAN_IDE &ide, const FLEXCAN_IDE &remote = NONE);
     void setFIFOFilter(const FLEXCAN_FLTEN &input);
+    bool setFIFOManualFilter(uint8_t filter, uint32_t id1, uint32_t mask, const FLEXCAN_IDE &ide, const FLEXCAN_IDE &remote = NONE);
     bool setFIFOFilter(uint8_t filter, uint32_t id1, const FLEXCAN_IDE &ide, const FLEXCAN_IDE &remote = NONE); /* single ID per filter */
     bool setFIFOFilter(uint8_t filter, uint32_t id1, uint32_t id2, const FLEXCAN_IDE &ide, const FLEXCAN_IDE &remote = NONE); /* 2 ID's per filter */
     bool setFIFOFilterRange(uint8_t filter, uint32_t id1, uint32_t id2, const FLEXCAN_IDE &ide, const FLEXCAN_IDE &remote = NONE); /* ID range per filter */
