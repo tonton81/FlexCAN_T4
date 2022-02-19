@@ -27,15 +27,9 @@
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
 */
-#include "FlexCAN_T4.h"
+#include <FlexCAN_T4.h>
 #include "imxrt_flexcan.h"
-#if defined(ARDUINO)
 #include "Arduino.h"
-#else
-#include "core/core.h"
-#include "random.h"
-#include "constrain.h"
-#endif
 
 static void flexcan_isr_can3fd();
 

@@ -29,13 +29,7 @@
 */
 
 #include <isotp.h>
-#if defined(ARDUINO)
 #include "Arduino.h"
-#else
-#include "core/core.h"
-#include "random.h"
-#include "constrain.h"
-#endif
 
 
 ISOTP_FUNC void ISOTP_OPT::sendFlowControl(const ISOTP_data &config) {

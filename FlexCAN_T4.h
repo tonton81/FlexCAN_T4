@@ -30,16 +30,9 @@
 #if !defined(_FLEXCAN_T4_H_)
 #define _FLEXCAN_T4_H_
 
-#if defined(ARDUINO)
 #include "Arduino.h"
-#else
-#include "core/core.h"
-#include "random.h"
-#include "constrain.h"
-#endif
 #include "circular_buffer.h"
 #include "imxrt_flexcan.h"
-#include "kinetis_flexcan.h"
 
 typedef struct CAN_error_t {
   char state[30] = "Idle";

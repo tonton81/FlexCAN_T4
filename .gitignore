@@ -1,5 +1,0 @@
-# ignore the build directory
-/build*
-
-# ignore VS code
-.vscode
