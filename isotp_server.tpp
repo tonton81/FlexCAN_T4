@@ -30,13 +30,7 @@
 
 
 #include <isotp_server.h>
-#if defined(ARDUINO)
 #include "Arduino.h"
-#else
-#include "core/core.h"
-#include "random.h"
-#include "constrain.h"
-#endif
 
 
 int isotp_server_Base::buffer_hosts = 0;

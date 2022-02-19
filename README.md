@@ -1,47 +1,4 @@
 # FlexCAN_T4
-This is a mirror of [FlexCAN_T4](https://github.com/tonton81/FlexCAN_T4), which has been modified to place source files under a *src* directory and it compiles using Arduino or our CMake [Build Tools](https://github.com/bolderflight/build-tools). Installation instructions are provided below, followed by a copy of the original README.
-   * [License](LICENSE.md)
-   * [Changelog](CHANGELOG.md)
-
-# Installation
-
-## Arduino
-Simply clone or download and extract the zipped library into your Arduino/libraries folder. The library is added as:
-
-```C++
-#include "FlexCAN_T4.h"
-```
-
-Examples are located in *examples/arduino*.
-
-## CMake
-CMake is used to build this library, which is exported as a library target called *flexcan*. The header is added as:
-
-```C++
-#include "FlexCAN_T4.h"
-```
-
-The library can be also be compiled stand-alone using the CMake idiom of creating a *build* directory and then, from within that directory issuing:
-
-```
-cmake .. -DMCU=MK66FX1M0
-make
-```
-
-This will build the library and an example executables called *loopback_example*. The example executable source files are located at *examples/cmake/loopback.cc*. Notice that the *cmake* command includes a define specifying the microcontroller the code is being compiled for. This is required to correctly configure the code, CPU frequency, and compile/linker options. The available MCUs are:
-   * MK20DX128
-   * MK20DX256
-   * MK64FX512
-   * MK66FX1M0
-   * MKL26Z64
-   * IMXRT1062_T40
-   * IMXRT1062_T41
-
-These are known to work with the same packages used in Teensy products. Also switching packages is known to work well, as long as it's only a package change.
-
-The *loopback_example* target creates an executable fortesting CAN communication using both CAN buses on a Teensy 3.6. This target also has a *_hex* for creating the hex file and an *_upload* for using the [Teensy CLI Uploader](https://www.pjrc.com/teensy/loader_cli.html) to flash the Teensy. Please note that the CMake build tooling is expected to be run under Linux or WSL, instructions for setting up your build environment can be found in our [build-tools repo](https://github.com/bolderflight/build-tools). 
-
-# FlexCAN_T4
 FlexCAN Library for Teensy 4
 
 https://forum.pjrc.com/threads/56035-FlexCAN_T4-FlexCAN-for-Teensy-4
