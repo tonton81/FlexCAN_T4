@@ -82,6 +82,11 @@ ISOTP_FUNC void ISOTP_OPT::write(const ISOTP_data &config, const uint8_t *buf, u
         msg.len = 8;
     }
     memmove(&msg.buf[1], &buf[0], size);
+   
+    if ( config.flags.usePadding ) {
+      for ( int i = msg.len; i <= 7; i++ ) msg.buf[i] = padding_value;
+      msg.len = 8;
+    }
     _isotp_busToWrite->write(msg);
     return;
   } 
@@ -127,6 +132,10 @@ extern void __attribute__((weak)) ext_isotp_output1(const ISOTP_data &config, co
 
 ISOTP_FUNC void ISOTP_OPT::_process_frame_data(const CAN_message_t &msg) {
   if ( !isotp_enabled ) return;
+
+#if defined(TEENSYDUINO)
+  if ( msg.bus != readBus ) return;
+#endif
 
   if ( msg.buf[0] <= 7 ) { /* single frame */
     ISOTP_data config;

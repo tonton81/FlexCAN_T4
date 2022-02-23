@@ -160,7 +160,7 @@ bool Circular_Buffer<T, _size, multi>::findRemove(T *buffer, uint16_t length, in
         }
     }
     if ( found >= 0 ) {
-      remove(found);
+      remove((head+found)&(_size-1));
       return 1;
     }
   }

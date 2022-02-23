@@ -60,7 +60,18 @@ ISOTPSERVER_CLASS class isotp_server : public isotp_server_Base {
     isotp_server();
     void begin() { enable(); }
     void enable(bool yes = 1) { isotp_enabled = yes; }
-    void setWriteBus(FlexCAN_T4_Base* _busWritePtr) { _isotp_server_busToWrite = _busWritePtr; }
+    void setWriteBus(FlexCAN_T4_Base* _busWritePtr) { 
+       _isotp_server_busToWrite = _busWritePtr; 
+      #if defined(__IMXRT1062__)
+        if ( _isotp_server_busToWrite == _CAN1 ) readBus = 1;    
+        if ( _isotp_server_busToWrite == _CAN2 ) readBus = 2;
+        if ( _isotp_server_busToWrite == _CAN3 ) readBus = 3;
+      #endif
+      #if defined(__MK20DX256__) || defined(__MK64FX512__) || defined(__MK66FX1M0__)
+        if ( _isotp_server_busToWrite == _CAN0 ) readBus = 0;    
+        if ( _isotp_server_busToWrite == _CAN1 ) readBus = 1;
+      #endif
+    }   
     void setPadding(uint8_t _byte) { padding_value = _byte; }
 
   private:
@@ -73,6 +84,7 @@ ISOTPSERVER_CLASS class isotp_server : public isotp_server_Base {
     volatile uint8_t index_sequence = 1;
     volatile bool isotp_enabled = 0;
     uint8_t padding_value = 0xA5;
+    uint8_t readBus = 1;
 };
 
 
