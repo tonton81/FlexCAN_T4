@@ -31,7 +31,20 @@
 #include <isotp.h>
 #include "Arduino.h"
 
+int isotp_Base::buffer_hosts = 0;
 
+ISOTP_FUNC ISOTP_OPT::isotp() {
+  _ISOTP_OBJ[isotp_Base::buffer_hosts] = this;
+  thisBufferHost = isotp_Base::buffer_hosts;
+  isotp_Base::buffer_hosts++;
+}
+
+//blocksize can be 0 in which case there is no counting.
+//separation time can either be delay in ms if <= 127 or 
+//delay in microseconds if 0xF1 through 0xF9 but then 
+//it's the lower nibble * 100us
+//currently this is not automatically being send by our reception
+//but it could/should be.
 ISOTP_FUNC void ISOTP_OPT::sendFlowControl(const ISOTP_data &config) {
   CAN_message_t msg;
   msg.id = config.id;
@@ -56,7 +69,6 @@ ISOTP_FUNC void ISOTP_OPT::sendFlowControl(const ISOTP_data &config) {
 
 }
 
-
 ISOTP_FUNC void ISOTP_OPT::write(const ISOTP_data &config, const uint8_t *buf, uint16_t size) {
   CAN_message_t msg;
   msg.id = config.id;
@@ -64,6 +76,11 @@ ISOTP_FUNC void ISOTP_OPT::write(const ISOTP_data &config, const uint8_t *buf, u
   if (size < 8) { /* single frame */
     msg.len = size + 1;
     msg.buf[0] = size & 0x0f;
+    if (config.flags.usePadding) 
+    {
+        for (int i = msg.len; i < 8; i++) msg.buf[i] = padding_value;
+        msg.len = 8;
+    }
     memmove(&msg.buf[1], &buf[0], size);
     _isotp_busToWrite->write(msg);
     return;
@@ -76,6 +93,11 @@ ISOTP_FUNC void ISOTP_OPT::write(const ISOTP_data &config, const uint8_t *buf, u
     _isotp_busToWrite->write(msg);
   }
 	
+  //this code should actually wait for the receiving side to send back a flow control
+  //message and then use those parameters instead of our own separation time. This would
+  //unfortunately then require that the code be able to be threaded or called somehow.
+  //It would require either a RTOS or calling the routine in a loop. The Arduino way
+  //would more correctly be having a loop function
 #if defined(TEENSYDUINO) // Teensy
   delay(constrain(config.separation_time, 0, 127));
 #elif defined(ARDUINO_ARCH_ESP32) //ESP32
@@ -111,7 +133,7 @@ ISOTP_FUNC void ISOTP_OPT::_process_frame_data(const CAN_message_t &msg) {
     config.id = msg.id;
     config.len = msg.buf[0];
     config.flags.extended = msg.flags.extended;
-    if ( _ISOTP_OBJ->_isotp_handler ) _ISOTP_OBJ->_isotp_handler(config, msg.buf + 1);
+    if ( _ISOTP_OBJ[thisBufferHost]->_isotp_handler ) _ISOTP_OBJ[thisBufferHost]->_isotp_handler(config, msg.buf + 1);
   }
 
   if ( (msg.buf[0] >> 4) == 1 ) { /* first frame */
@@ -120,6 +142,7 @@ ISOTP_FUNC void ISOTP_OPT::_process_frame_data(const CAN_message_t &msg) {
     memmove(data + 7, &msg.buf[0], 8); /* ID, ID, ID, ID, QPOS, QPOS, SEQUENCE: TOTAL 7 */
     _rx_slots.findRemove(data, sizeof(data), 0, 1, 2, 3, 3);
     _rx_slots.push_back(data, sizeof(data));
+    //really ought to send flow control msg here. Some remote nodes will require this before sending the rest of the frames
   } /* first frame */
 
   if ( (msg.buf[0] >> 4) == 2 ) { /* consecutive frames */
@@ -142,7 +165,7 @@ ISOTP_FUNC void ISOTP_OPT::_process_frame_data(const CAN_message_t &msg) {
         config.id = ((uint32_t)(data[0] << 24) | data[1] << 16 | data[2] << 8 | data[3]);
         config.len = ((((uint16_t)data[7] & 0xF) << 8) | data[8]);
         config.flags.extended = msg.flags.extended;
-        if ( _ISOTP_OBJ->_isotp_handler ) _ISOTP_OBJ->_isotp_handler(config, data + 9);
+        if ( _ISOTP_OBJ[thisBufferHost]->_isotp_handler ) _ISOTP_OBJ[thisBufferHost]->_isotp_handler(config, data + 9);
         if ( ext_isotp_output1 ) ext_isotp_output1(config, data + 9);
       }
     }
@@ -150,6 +173,17 @@ ISOTP_FUNC void ISOTP_OPT::_process_frame_data(const CAN_message_t &msg) {
 }
 
 
+//catch the callback interrupt from the main library and process each registered ISOTP handler.
+//Each one registers for an ID and a BUS and we only pass traffic if it matches. But -1 means wildcard
+//and the wildcard is the default so this still works the same as it used to by default.
 void ext_output2(const CAN_message_t &msg) {
-  _ISOTP_OBJ->_process_frame_data(msg);
+  for ( int i = 0; i < isotp_Base::buffer_hosts; i++ ) 
+  {
+    if ( _ISOTP_OBJ[i] ) 
+    {
+        if ( (_ISOTP_OBJ[i]->boundBus < 0) || (_ISOTP_OBJ[i]->boundBus == msg.bus) )
+          if ( (_ISOTP_OBJ[i]->boundID < 0) || (_ISOTP_OBJ[i]->boundID == msg.id) )
+            _ISOTP_OBJ[i]->_process_frame_data(msg);
+    }
+  }
 }
