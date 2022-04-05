@@ -999,10 +999,12 @@ FCTP_FUNC int FCTP_OPT::readMB(CAN_message_t &msg) {
   return 0; /* no messages available */
 }
 
-FCTP_FUNC void FCTP_OPT::struct2queueTx(const CAN_message_t &msg) {
+FCTP_FUNC bool FCTP_OPT::struct2queueTx(const CAN_message_t &msg) {
+  if ( txBuffer.size() == txBuffer.capacity() ) return 0; /* no queues available */
   uint8_t buf[sizeof(CAN_message_t)];
   memmove(buf, &msg, sizeof(msg));
   txBuffer.push_back(buf, sizeof(CAN_message_t));
+  return -1; /* transmit entry failed, no mailboxes available, queued */
 }
 
 FCTP_FUNC int FCTP_OPT::write(FLEXCAN_MAILBOX mb_num, const CAN_message_t &msg) {
@@ -1018,8 +1020,7 @@ FCTP_FUNC int FCTP_OPT::write(FLEXCAN_MAILBOX mb_num, const CAN_message_t &msg) 
     else {
       CAN_message_t msg_copy = msg;
       msg_copy.mb = first_tx_mb;
-      struct2queueTx(msg_copy); /* queue if no mailboxes found */
-      return -1; /* transmit entry failed, no mailboxes available, queued */
+      return struct2queueTx(msg_copy); /* queue if no mailboxes found */
     }
   }
   if ( FLEXCAN_get_code(mbxAddr[0]) == FLEXCAN_MB_CODE_TX_INACTIVE ) {
@@ -1028,8 +1029,7 @@ FCTP_FUNC int FCTP_OPT::write(FLEXCAN_MAILBOX mb_num, const CAN_message_t &msg) 
   }
   CAN_message_t msg_copy = msg;
   msg_copy.mb = mb_num;
-  struct2queueTx(msg_copy); /* queue if no mailboxes found */
-  return -1; /* transmit entry failed, no mailboxes available, queued */
+  return struct2queueTx(msg_copy); /* queue if no mailboxes found */
 }
 
 FCTP_FUNC int FCTP_OPT::write(const CAN_message_t &msg) {
@@ -1042,8 +1042,7 @@ FCTP_FUNC int FCTP_OPT::write(const CAN_message_t &msg) {
     else {
       CAN_message_t msg_copy = msg;
       msg_copy.mb = first_tx_mb;
-      struct2queueTx(msg_copy); /* queue if no mailboxes found */
-      return -1; /* transmit entry failed, no mailboxes available, queued */
+      return struct2queueTx(msg_copy); /* queue if no mailboxes found */
     }
   }
   for (uint8_t i = mailboxOffset(); i < FLEXCANb_MAXMB_SIZE(_bus); i++) {
@@ -1054,8 +1053,7 @@ FCTP_FUNC int FCTP_OPT::write(const CAN_message_t &msg) {
   }
   CAN_message_t msg_copy = msg;
   msg_copy.mb = -1;
-  struct2queueTx(msg_copy); /* queue if no mailboxes found */
-  return -1; /* transmit entry failed, no mailboxes available, queued */
+  return struct2queueTx(msg_copy); /* queue if no mailboxes found */
 }
 
 FCTP_FUNC void FCTP_OPT::onReceive(const FLEXCAN_MAILBOX &mb_num, _MB_ptr handler) {
