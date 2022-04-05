@@ -1000,6 +1000,7 @@ FCTP_FUNC int FCTP_OPT::readMB(CAN_message_t &msg) {
 }
 
 FCTP_FUNC bool FCTP_OPT::struct2queueTx(const CAN_message_t &msg) {
+  if (FLEXCANb_ESR1(_bus) & 0x20) return -2;
   if ( txBuffer.size() == txBuffer.capacity() ) return 0; /* no queues available */
   uint8_t buf[sizeof(CAN_message_t)];
   memmove(buf, &msg, sizeof(msg));
