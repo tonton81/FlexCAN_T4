@@ -498,7 +498,7 @@ FCTP_CLASS class FlexCAN_T4 : public FlexCAN_T4_Base {
     bool setFIFOFilter(uint8_t filter, uint32_t id1, const FLEXCAN_IDE &ide1, const FLEXCAN_IDE &remote1, uint32_t id2, const FLEXCAN_IDE &ide2, const FLEXCAN_IDE &remote2); /* TableB 2 ID / filter */
     bool setFIFOFilter(uint8_t filter, uint32_t id1, uint32_t id2, const FLEXCAN_IDE &ide1, const FLEXCAN_IDE &remote1, uint32_t id3, uint32_t id4, const FLEXCAN_IDE &ide2, const FLEXCAN_IDE &remote2); /* TableB 4 minimum ID / filter */
     bool setFIFOFilterRange(uint8_t filter, uint32_t id1, uint32_t id2, const FLEXCAN_IDE &ide1, const FLEXCAN_IDE &remote1, uint32_t id3, uint32_t id4, const FLEXCAN_IDE &ide2, const FLEXCAN_IDE &remote2); /* TableB dual range based IDs */
-    void struct2queueTx(const CAN_message_t &msg);
+    bool struct2queueTx(const CAN_message_t &msg);
     void struct2queueRx(const CAN_message_t &msg);
 #if defined(__IMXRT1062__)
     void setClock(FLEXCAN_CLOCK clock = CLK_24MHz);
