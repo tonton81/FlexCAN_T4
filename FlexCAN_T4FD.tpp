@@ -438,6 +438,7 @@ FCTPFD_FUNC void FCTPFD_OPT::mbCallbacks(const FLEXCAN_MAILBOX &mb_num, const CA
     return;
   }
   if ( _mbHandlers[mb_num] ) _mbHandlers[mb_num](msg);
+  if ( _mainHandler ) _mainHandler(msg);
 }
 
 FCTPFD_FUNC void FCTPFD_OPT::flexcan_interrupt() {
@@ -476,6 +477,10 @@ FCTPFD_FUNC void FCTPFD_OPT::flexcan_interrupt() {
 }
 
 FCTPFD_FUNC void FCTPFD_OPT::struct2queueRx(const CANFD_message_t &msg) {
+  if ( !isEventsUsed ) {
+    mbCallbacks((FLEXCAN_MAILBOX)msg.mb, msg);	
+    return;	
+  }
   uint8_t buf[sizeof(CANFD_message_t)];
   memmove(buf, &msg, sizeof(msg));
   rxBuffer.push_back(buf, sizeof(CANFD_message_t));
@@ -504,6 +509,7 @@ FCTPFD_FUNC int FCTPFD_OPT::write(const CANFD_message_t &msg) {
 }
 
 FCTPFD_FUNC uint64_t FCTPFD_OPT::events() {
+  if ( !isEventsUsed ) isEventsUsed = 1;
   if ( rxBuffer.size() ) {
     CANFD_message_t frame;
     uint8_t buf[sizeof(CANFD_message_t)];
