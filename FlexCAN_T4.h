@@ -393,6 +393,7 @@ FCTPFD_CLASS class FlexCAN_T4FD : public FlexCAN_T4_Base {
     void setMBFilterProcessing(FLEXCAN_MAILBOX mb_num, uint32_t filter_id, uint32_t calculated_mask);
 
   private:
+    volatile bool isEventsUsed = 0;
     uint64_t readIFLAG() { return (((uint64_t)FLEXCANb_IFLAG2(_bus) << 32) | FLEXCANb_IFLAG1(_bus)); }
     uint32_t mailbox_offset(uint8_t mailbox, uint8_t &maxsize); 
     void writeTxMailbox(uint8_t mb_num, const CANFD_message_t &msg);
