@@ -845,6 +845,17 @@ FCTP_FUNC void FCTP_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, FLEXCAN_FLTEN input
   if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
 }
 
+FCTP_FUNC bool FCTP_OPT::setMBManualFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t mask) {
+  if ( mb_num < mailboxOffset() || mb_num >= FLEXCANb_MAXMB_SIZE(_bus) ) return 0; /* mailbox not available */
+  if ( (FLEXCAN_get_code(FLEXCANb_MBn_CS(_bus, mb_num)) >> 3) ) return 0; /* exit on TX mailbox */
+  if (!(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE)) {
+    mask = mask << 18;  /* shift mask by 18 for 11 bit filters */
+  }
+  setMBFilterProcessing(mb_num,id1,mask);
+  filter_store(FLEXCAN_MULTI, mb_num, 1, id1, 0, 0, 0, 0);
+  return 1;
+}
+
 FCTP_FUNC bool FCTP_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1) {
   if ( mb_num < mailboxOffset() || mb_num >= FLEXCANb_MAXMB_SIZE(_bus) ) return 0; /* mailbox not available */
   if ( (FLEXCAN_get_code(FLEXCANb_MBn_CS(_bus, mb_num)) >> 3) ) return 0; /* exit on TX mailbox */ 
@@ -988,10 +999,13 @@ FCTP_FUNC int FCTP_OPT::readMB(CAN_message_t &msg) {
   return 0; /* no messages available */
 }
 
-FCTP_FUNC void FCTP_OPT::struct2queueTx(const CAN_message_t &msg) {
+FCTP_FUNC bool FCTP_OPT::struct2queueTx(const CAN_message_t &msg) {
+  if (FLEXCANb_ESR1(_bus) & 0x20) return -2;
+  if ( txBuffer.size() == txBuffer.capacity() ) return 0; /* no queues available */
   uint8_t buf[sizeof(CAN_message_t)];
   memmove(buf, &msg, sizeof(msg));
   txBuffer.push_back(buf, sizeof(CAN_message_t));
+  return -1; /* transmit entry failed, no mailboxes available, queued */
 }
 
 FCTP_FUNC int FCTP_OPT::write(FLEXCAN_MAILBOX mb_num, const CAN_message_t &msg) {
@@ -1007,8 +1021,7 @@ FCTP_FUNC int FCTP_OPT::write(FLEXCAN_MAILBOX mb_num, const CAN_message_t &msg) 
     else {
       CAN_message_t msg_copy = msg;
       msg_copy.mb = first_tx_mb;
-      struct2queueTx(msg_copy); /* queue if no mailboxes found */
-      return -1; /* transmit entry failed, no mailboxes available, queued */
+      return struct2queueTx(msg_copy); /* queue if no mailboxes found */
     }
   }
   if ( FLEXCAN_get_code(mbxAddr[0]) == FLEXCAN_MB_CODE_TX_INACTIVE ) {
@@ -1017,8 +1030,7 @@ FCTP_FUNC int FCTP_OPT::write(FLEXCAN_MAILBOX mb_num, const CAN_message_t &msg) 
   }
   CAN_message_t msg_copy = msg;
   msg_copy.mb = mb_num;
-  struct2queueTx(msg_copy); /* queue if no mailboxes found */
-  return -1; /* transmit entry failed, no mailboxes available, queued */
+  return struct2queueTx(msg_copy); /* queue if no mailboxes found */
 }
 
 FCTP_FUNC int FCTP_OPT::write(const CAN_message_t &msg) {
@@ -1031,8 +1043,7 @@ FCTP_FUNC int FCTP_OPT::write(const CAN_message_t &msg) {
     else {
       CAN_message_t msg_copy = msg;
       msg_copy.mb = first_tx_mb;
-      struct2queueTx(msg_copy); /* queue if no mailboxes found */
-      return -1; /* transmit entry failed, no mailboxes available, queued */
+      return struct2queueTx(msg_copy); /* queue if no mailboxes found */
     }
   }
   for (uint8_t i = mailboxOffset(); i < FLEXCANb_MAXMB_SIZE(_bus); i++) {
@@ -1043,8 +1054,7 @@ FCTP_FUNC int FCTP_OPT::write(const CAN_message_t &msg) {
   }
   CAN_message_t msg_copy = msg;
   msg_copy.mb = -1;
-  struct2queueTx(msg_copy); /* queue if no mailboxes found */
-  return -1; /* transmit entry failed, no mailboxes available, queued */
+  return struct2queueTx(msg_copy); /* queue if no mailboxes found */
 }
 
 FCTP_FUNC void FCTP_OPT::onReceive(const FLEXCAN_MAILBOX &mb_num, _MB_ptr handler) {
@@ -1405,6 +1415,37 @@ FCTP_FUNC void FCTP_OPT::setFIFOFilter(const FLEXCAN_FLTEN &input) {
     }
   }
   if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
+}
+
+FCTP_FUNC bool FCTP_OPT::setFIFOManualFilter(uint8_t filter, uint32_t id1, uint32_t mask, const FLEXCAN_IDE &ide, const FLEXCAN_IDE &remote) {
+  if ( !(FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FEN )) return 0; /* FIFO not enabled. */
+  uint8_t max_fifo_filters = (((FLEXCANb_CTRL2(_bus) >> FLEXCAN_CTRL2_RFFN_BIT_NO) & 0xF) + 1) * 8; // 8->128
+  if ( filter >= max_fifo_filters ) return 0;
+  bool frz_flag_negate = !(FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FRZ_ACK);
+  FLEXCAN_EnterFreezeMode();
+  /* ##################################### TABLE A ###################################### */
+  if ( ((FLEXCANb_MCR(_bus) & FLEXCAN_MCR_IDAM_MASK) >> FLEXCAN_MCR_IDAM_BIT_NO) == 0 ) {
+    if (ide != EXT) {
+      mask = mask << 19 | 0xC0000001;
+    } else {
+      mask = mask << 1 | 0xC0000001;
+    }
+    FLEXCANb_IDFLT_TAB(_bus, filter) = ((ide == EXT ? 1 : 0) << 30) | ((remote == RTR ? 1 : 0) << 31) |
+        ((ide == EXT ? ((id1 & FLEXCAN_MB_ID_EXT_MASK) << 1) : (FLEXCAN_MB_ID_IDSTD(id1) << 1)));
+    if ( filter < constrain(mailboxOffset(), 0, 32) ) FLEXCANb_RXIMR(_bus, filter) = mask;// | ((filter < (max_fifo_filters / 2)) ? 0 : (1UL << 30)); // (RXIMR)
+    FLEXCANb_RXFGMASK(_bus) = mask;//0x3FFFFFFF; /* enforce it for blocks 32->127, single IDs */
+    fifo_filter_table[filter][0] = ( ((ide == EXT) ? 1UL : 0UL) << 16); /* extended flag check */
+    fifo_filter_store(FLEXCAN_MULTI, filter, 1, id1, 0, 0, 0, 0);
+  }
+  /* #################################################################################### */
+  /* ##################################### TABLE B ###################################### */
+  if ( ((FLEXCANb_MCR(_bus) & FLEXCAN_MCR_IDAM_MASK) >> FLEXCAN_MCR_IDAM_BIT_NO) == 1 ) {
+    return false;
+  }
+
+  /* #################################################################################### */
+  if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
+  return 1;
 }
 
 FCTP_FUNC bool FCTP_OPT::setFIFOFilter(uint8_t filter, uint32_t id1, const FLEXCAN_IDE &ide, const FLEXCAN_IDE &remote) {

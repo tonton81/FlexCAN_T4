@@ -77,7 +77,7 @@ class Circular_Buffer {
         T min();
         T max();
         T mean() { return average(); }
-        T max_size() { return multi; }
+        uint16_t max_size() { return multi; }
         T pop_back(T *buffer, uint16_t length);
         T* peek_front() { return front(); } 
         T* peek_back() { return back(); } 
@@ -339,7 +339,7 @@ void Circular_Buffer<T,_size,multi>::push_front(T value) {
 template<typename T, uint16_t _size, uint16_t multi>
 void Circular_Buffer<T,_size,multi>::write(const T *buffer, uint16_t length) {
   if ( multi ) {
-    _cabuf[((tail)&(_size-1))][0] = length & 0xFF00;
+    _cabuf[((tail)&(_size-1))][0] = length >> 8;
     _cabuf[((tail)&(_size-1))][1] = length & 0xFF;
     memmove(_cabuf[((tail)&(_size-1))]+2,buffer,length*sizeof(T));
     if ( tail == ((head ^ _size)) ) head = ((head + 1)&(2*_size-1));
