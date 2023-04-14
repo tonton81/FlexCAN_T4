@@ -399,9 +399,9 @@ FCTP_FUNC void FCTP_OPT::writeIFLAG(uint64_t value) {
   FLEXCANb_IFLAG1(_bus) = value;
 }
 
-FCTP_FUNC void FCTP_OPT::writeIFLAGBit(uint8_t mb_num) {
-  if ( mb_num < 32 ) FLEXCANb_IFLAG1(_bus) |= (1UL << mb_num);
-  else FLEXCANb_IFLAG2(_bus) |= (1UL << (mb_num - 32));
+FCTP_FUNC void FCTP_OPT::writeIFLAGBit(uint8_t mb_num) { // bugfix by bsundahl1
+  if ( mb_num < 32 ) FLEXCANb_IFLAG1(_bus) = (1UL << mb_num);
+  else FLEXCANb_IFLAG2(_bus) = (1UL << (mb_num - 32));
 }
 
 FCTP_FUNC void FCTP_OPT::writeIMASK(uint64_t value) {
