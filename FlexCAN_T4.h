@@ -328,7 +328,7 @@ class FlexCAN_T4_Base {
     virtual int write(const CANFD_message_t &msg) = 0;
     virtual int write(const CAN_message_t &msg) = 0;
     virtual bool isFD() = 0;
-    virtual uint8_t getFirstTxBoxSize();
+    virtual uint8_t getFirstTxBoxSize() = 0;
 };
 
 #if defined(__IMXRT1062__)

@@ -399,9 +399,9 @@ FCTP_FUNC void FCTP_OPT::writeIFLAG(uint64_t value) {
   FLEXCANb_IFLAG1(_bus) = value;
 }
 
-FCTP_FUNC void FCTP_OPT::writeIFLAGBit(uint8_t mb_num) {
-  if ( mb_num < 32 ) FLEXCANb_IFLAG1(_bus) |= (1UL << mb_num);
-  else FLEXCANb_IFLAG2(_bus) |= (1UL << (mb_num - 32));
+FCTP_FUNC void FCTP_OPT::writeIFLAGBit(uint8_t mb_num) { // bugfix by bsundahl1
+  if ( mb_num < 32 ) FLEXCANb_IFLAG1(_bus) = (1UL << mb_num);
+  else FLEXCANb_IFLAG2(_bus) = (1UL << (mb_num - 32));
 }
 
 FCTP_FUNC void FCTP_OPT::writeIMASK(uint64_t value) {
@@ -695,7 +695,7 @@ FCTP_FUNC bool FCTP_OPT::setMBUserFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, u
 FCTP_FUNC bool FCTP_OPT::setMBUserFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t id2, uint32_t mask) {
   if ( mb_num < mailboxOffset() || mb_num >= FLEXCANb_MAXMB_SIZE(_bus) ) return 0; /* mailbox not available */
   if ( (FLEXCAN_get_code(FLEXCANb_MBn_CS(_bus, mb_num)) >> 3) ) return 0; /* exit on TX mailbox */ 
-  uint32_t new_mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD((((id1 | id2) ^ (id1 & id2)) ^ 0x7FF) & mask) : FLEXCAN_MB_ID_IDEXT((((id1 | id2) ^ (id1 & id2)) ^ 0x1FFFFFFF) & mask);
+  uint32_t new_mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD((((id1 | id2) ^ (id1 & id2)) ^ 0x7FF) & mask) : ((((id1 | id2) ^ (id1 & id2)) ^ 0x1FFFFFFF) & mask);
   setMBFilterProcessing(mb_num,id1,new_mask);
   filter_store(FLEXCAN_USERMASK, mb_num, 2, id1, id2, 0, 0, mask);
   return 1;
@@ -704,7 +704,7 @@ FCTP_FUNC bool FCTP_OPT::setMBUserFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, u
 FCTP_FUNC bool FCTP_OPT::setMBUserFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t id2, uint32_t id3, uint32_t mask) {
   if ( mb_num < mailboxOffset() || mb_num >= FLEXCANb_MAXMB_SIZE(_bus) ) return 0; /* mailbox not available */
   if ( (FLEXCAN_get_code(FLEXCANb_MBn_CS(_bus, mb_num)) >> 3) ) return 0; /* exit on TX mailbox */ 
-  uint32_t new_mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD((((id1 | id2 | id3) ^ (id1 & id2 & id3)) ^ 0x7FF) & mask) : FLEXCAN_MB_ID_IDEXT((((id1 | id2 | id3) ^ (id1 & id2 & id3)) ^ 0x1FFFFFFF) & mask);
+  uint32_t new_mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD((((id1 | id2 | id3) ^ (id1 & id2 & id3)) ^ 0x7FF) & mask) : ((((id1 | id2 | id3) ^ (id1 & id2 & id3)) ^ 0x1FFFFFFF) & mask);
   setMBFilterProcessing(mb_num,id1,new_mask);
   filter_store(FLEXCAN_USERMASK, mb_num, 3, id1, id2, id3, 0, mask);
   return 1;
@@ -713,7 +713,7 @@ FCTP_FUNC bool FCTP_OPT::setMBUserFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, u
 FCTP_FUNC bool FCTP_OPT::setMBUserFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t id2, uint32_t id3, uint32_t id4, uint32_t mask) {
   if ( mb_num < mailboxOffset() || mb_num >= FLEXCANb_MAXMB_SIZE(_bus) ) return 0; /* mailbox not available */
   if ( (FLEXCAN_get_code(FLEXCANb_MBn_CS(_bus, mb_num)) >> 3) ) return 0; /* exit on TX mailbox */ 
-  uint32_t new_mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD((((id1 | id2 | id3 | id4) ^ (id1 & id2 & id3 & id4)) ^ 0x7FF) & mask) : FLEXCAN_MB_ID_IDEXT((((id1 | id2 | id3 | id4) ^ (id1 & id2 & id3 & id4)) ^ 0x1FFFFFFF) & mask);
+  uint32_t new_mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD((((id1 | id2 | id3 | id4) ^ (id1 & id2 & id3 & id4)) ^ 0x7FF) & mask) : ((((id1 | id2 | id3 | id4) ^ (id1 & id2 & id3 & id4)) ^ 0x1FFFFFFF) & mask);
   setMBFilterProcessing(mb_num,id1,new_mask);
   filter_store(FLEXCAN_USERMASK, mb_num, 4, id1, id2, id3, id4, mask);
   return 1;
@@ -816,7 +816,7 @@ FCTP_FUNC void FCTP_OPT::setMBFilterProcessing(FLEXCAN_MAILBOX mb_num, uint32_t 
   bool frz_flag_negate = !(FLEXCANb_MCR(_bus) & FLEXCAN_MCR_FRZ_ACK);
   FLEXCAN_EnterFreezeMode();
   FLEXCANb_RXIMR(_bus, mb_num) = calculated_mask | ((FLEXCANb_CTRL2(_bus) & FLEXCAN_CTRL2_EACEN) ? (1UL << 30) : 0);
-  FLEXCANb_MBn_ID(_bus, mb_num) = ((!(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE)) ? FLEXCAN_MB_ID_IDSTD(filter_id) : FLEXCAN_MB_ID_IDEXT(filter_id));
+  FLEXCANb_MBn_ID(_bus, mb_num) = ((!(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE)) ? FLEXCAN_MB_ID_IDSTD(filter_id) : (filter_id & 0x1FFFFFFF));
   if ( frz_flag_negate ) FLEXCAN_ExitFreezeMode();
 }
 
@@ -859,7 +859,7 @@ FCTP_FUNC bool FCTP_OPT::setMBManualFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1,
 FCTP_FUNC bool FCTP_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1) {
   if ( mb_num < mailboxOffset() || mb_num >= FLEXCANb_MAXMB_SIZE(_bus) ) return 0; /* mailbox not available */
   if ( (FLEXCAN_get_code(FLEXCANb_MBn_CS(_bus, mb_num)) >> 3) ) return 0; /* exit on TX mailbox */ 
-  uint32_t mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1) ^ (id1)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1) ^ (id1)) ^ 0x1FFFFFFF);
+  uint32_t mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1) ^ (id1)) ^ 0x7FF) : ((((id1) ^ (id1)) ^ 0x1FFFFFFF) & 0x1FFFFFFF);
   setMBFilterProcessing(mb_num,id1,mask);
   filter_store(FLEXCAN_MULTI, mb_num, 1, id1, 0, 0, 0, 0);
   return 1;
@@ -868,7 +868,7 @@ FCTP_FUNC bool FCTP_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1) {
 FCTP_FUNC bool FCTP_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t id2) {
   if ( mb_num < mailboxOffset() || mb_num >= FLEXCANb_MAXMB_SIZE(_bus) ) return 0; /* mailbox not available */
   if ( (FLEXCAN_get_code(FLEXCANb_MBn_CS(_bus, mb_num)) >> 3) ) return 0; /* exit on TX mailbox */ 
-  uint32_t mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2) ^ (id1 & id2)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1 | id2) ^ (id1 & id2)) ^ 0x1FFFFFFF);
+  uint32_t mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2) ^ (id1 & id2)) ^ 0x7FF) : ((((id1 | id2) ^ (id1 & id2)) ^ 0x1FFFFFFF) & 0x1FFFFFFF);
   setMBFilterProcessing(mb_num,id1,mask);
   filter_store(FLEXCAN_MULTI, mb_num, 2, id1, id2, 0, 0, 0);
   return 1;
@@ -877,7 +877,7 @@ FCTP_FUNC bool FCTP_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint3
 FCTP_FUNC bool FCTP_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t id2, uint32_t id3) {
   if ( mb_num < mailboxOffset() || mb_num >= FLEXCANb_MAXMB_SIZE(_bus) ) return 0; /* mailbox not available */
   if ( (FLEXCAN_get_code(FLEXCANb_MBn_CS(_bus, mb_num)) >> 3) ) return 0; /* exit on TX mailbox */ 
-  uint32_t mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2 | id3) ^ (id1 & id2 & id3)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1 | id2 | id3) ^ (id1 & id2 & id3)) ^ 0x1FFFFFFF);
+  uint32_t mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2 | id3) ^ (id1 & id2 & id3)) ^ 0x7FF) : ((((id1 | id2 | id3) ^ (id1 & id2 & id3)) ^ 0x1FFFFFFF) & 0x1FFFFFFF);
   setMBFilterProcessing(mb_num,id1,mask);
   filter_store(FLEXCAN_MULTI, mb_num, 3, id1, id2, id3, 0, 0);
   return 1;
@@ -886,7 +886,7 @@ FCTP_FUNC bool FCTP_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint3
 FCTP_FUNC bool FCTP_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t id2, uint32_t id3, uint32_t id4) {
   if ( mb_num < mailboxOffset() || mb_num >= FLEXCANb_MAXMB_SIZE(_bus) ) return 0; /* mailbox not available */
   if ( (FLEXCAN_get_code(FLEXCANb_MBn_CS(_bus, mb_num)) >> 3) ) return 0; /* exit on TX mailbox */ 
-  uint32_t mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2 | id3 | id4) ^ (id1 & id2 & id3 & id4)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1 | id2 | id3 | id4) ^ (id1 & id2 & id3 & id4)) ^ 0x1FFFFFFF);
+  uint32_t mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2 | id3 | id4) ^ (id1 & id2 & id3 & id4)) ^ 0x7FF) : ((((id1 | id2 | id3 | id4) ^ (id1 & id2 & id3 & id4)) ^ 0x1FFFFFFF) & 0x1FFFFFFF);
   setMBFilterProcessing(mb_num,id1,mask);
   filter_store(FLEXCAN_MULTI, mb_num, 4, id1, id2, id3, id4, 0);
   return 1;
@@ -895,7 +895,7 @@ FCTP_FUNC bool FCTP_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint3
 FCTP_FUNC bool FCTP_OPT::setMBFilter(FLEXCAN_MAILBOX mb_num, uint32_t id1, uint32_t id2, uint32_t id3, uint32_t id4, uint32_t id5) {
   if ( mb_num < mailboxOffset() || mb_num >= FLEXCANb_MAXMB_SIZE(_bus) ) return 0; /* mailbox not available */
   if ( (FLEXCAN_get_code(FLEXCANb_MBn_CS(_bus, mb_num)) >> 3) ) return 0; /* exit on TX mailbox */ 
-  uint32_t mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2 | id3 | id4 | id5) ^ (id1 & id2 & id3 & id4 & id5)) ^ 0x7FF) : FLEXCAN_MB_ID_IDEXT(((id1 | id2 | id3 | id4 | id5) ^ (id1 & id2 & id3 & id4 & id5)) ^ 0x1FFFFFFF);
+  uint32_t mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD(((id1 | id2 | id3 | id4 | id5) ^ (id1 & id2 & id3 & id4 & id5)) ^ 0x7FF) : ((((id1 | id2 | id3 | id4 | id5) ^ (id1 & id2 & id3 & id4 & id5)) ^ 0x1FFFFFFF) & 0x1FFFFFFF);
   setMBFilterProcessing(mb_num,id1,mask);
   filter_store(FLEXCAN_MULTI, mb_num, 5, id1, id2, id3, id4, id5);
   return 1;
@@ -909,7 +909,7 @@ FCTP_FUNC bool FCTP_OPT::setMBFilterRange(FLEXCAN_MAILBOX mb_num, uint32_t id1, 
   for ( uint32_t i = id1 + 1; i <= id2; i++ ) {
     stage1 |= i; stage2 &= i;
   }
-  uint32_t mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD( (stage1 ^ stage2) ^ 0x1FFFFFFF ) : FLEXCAN_MB_ID_IDEXT( (stage1 ^ stage2) ^ 0x1FFFFFFF );
+  uint32_t mask = ( !(FLEXCANb_MBn_CS(_bus, mb_num) & FLEXCAN_MB_CS_IDE) ) ? FLEXCAN_MB_ID_IDSTD( (stage1 ^ stage2) ^ 0x1FFFFFFF ) : (( (stage1 ^ stage2) ^ 0x1FFFFFFF ) & 0x1FFFFFFF);
   setMBFilterProcessing(mb_num,id1,mask);
   filter_store(FLEXCAN_RANGE, mb_num, 2, id1, id2, 0, 0, 0);
   return 1;
