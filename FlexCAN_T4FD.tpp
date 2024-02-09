@@ -89,6 +89,64 @@ FCTPFD_FUNC void FCTPFD_OPT::begin() {
   NVIC_ENABLE_IRQ(nvicIrq);
 }
 
+FCTPFD_FUNC bool FCTPFD_OPT::error(CAN_error_t &error, bool printDetails) {
+  if ( !busESR1.size() ) return 0;
+  NVIC_DISABLE_IRQ(nvicIrq);
+  error.ESR1 = busESR1.read();
+  error.ECR = busECR.read();
+
+  error.canState = CAN_STATE_UNK;
+  if ( (error.ESR1 & 0x400C8) == 0x40080 ) error.canState = CAN_STATE_IDLE;
+  else if ( (error.ESR1 & 0x400C8) == 0x0 ) error.canState = CAN_STATE_NO_SYNC;
+  else if ( (error.ESR1 & 0x400C8) == 0x40040 ) error.canState = CAN_STATE_TX;
+  else if ( (error.ESR1 & 0x400C8) == 0x40008 ) error.canState = CAN_STATE_RX;
+
+  error.BIT1_ERR = (error.ESR1 & (1UL << 15)) ? 1 : 0;
+  error.BIT0_ERR = (error.ESR1 & (1UL << 14)) ? 1 : 0;
+  error.ACK_ERR = (error.ESR1 & (1UL << 13)) ? 1 : 0;
+  error.CRC_ERR = (error.ESR1 & (1UL << 12)) ? 1 : 0;
+  error.FRM_ERR = (error.ESR1 & (1UL << 11)) ? 1 : 0;
+  error.STF_ERR = (error.ESR1 & (1UL << 10)) ? 1 : 0;
+  error.TX_WRN = (error.ESR1 & (1UL << 9)) ? 1 : 0;
+  error.RX_WRN = (error.ESR1 & (1UL << 8)) ? 1 : 0;
+  error.BIT1_ERR_FD = (error.ESR1 & (1UL << 31)) ? 1 : 0;
+  error.BIT0_ERR_FD = (error.ESR1 & (1UL << 30)) ? 1 : 0;
+  error.CRC_ERR_FD = (error.ESR1 & (1UL << 28)) ? 1 : 0;
+  error.FRM_ERR_FD = (error.ESR1 & (1UL << 27)) ? 1 : 0;
+  error.STF_ERR_FD = (error.ESR1 & (1UL << 26)) ? 1 : 0;
+
+  if ( (error.ESR1 & 0x30) == 0x0 ) error.fltConf = FLTCONF_ERR_ACTIVE;
+  else if ( (error.ESR1 & 0x30) == 0x1 ) error.fltConf = FLTCONF_ERR_PASSIVE;
+  else error.fltConf = FLTCONF_BUS_OFF;
+
+  error.RX_ERR_COUNTER = (uint8_t)(error.ECR >> 8);
+  error.TX_ERR_COUNTER = (uint8_t)error.ECR;
+
+  if ( printDetails ) printErrors(error);
+  NVIC_ENABLE_IRQ(nvicIrq);
+  return 1;
+}
+
+FCTPFD_FUNC void FCTPFD_OPT::printErrors(const CAN_error_t &error) {
+  Serial.print("FlexCAN State: "); Serial.print(CAN_STATE_STRINGS[(int)error.canState]);
+  if ( error.BIT1_ERR ) Serial.print(", BIT1_ERR");
+  if ( error.BIT0_ERR ) Serial.print(", BIT0_ERR");
+  if ( error.ACK_ERR ) Serial.print(", ACK_ERR");
+  if ( error.CRC_ERR ) Serial.print(", CRC_ERR");
+  if ( error.FRM_ERR ) Serial.print(", FRM_ERR");
+  if ( error.STF_ERR ) Serial.print(", STF_ERR");
+
+  if ( error.BIT1_ERR_FD ) Serial.print(", BIT1_ERR_FD");
+  if ( error.BIT0_ERR_FD ) Serial.print(", BIT0_ERR_FD");
+  if ( error.CRC_ERR_FD ) Serial.print(", CRC_ERR_FD");
+  if ( error.FRM_ERR_FD ) Serial.print(", FRM_ERR_FD");
+  if ( error.STF_ERR_FD ) Serial.print(", STF_ERR_FD");
+
+  if ( error.RX_WRN ) Serial.printf(", RX_WRN: %d", error.RX_ERR_COUNTER);
+  if ( error.TX_WRN ) Serial.printf(", TX_WRN: %d", error.TX_ERR_COUNTER);
+  Serial.printf(", FLT_CONF: %s\n", CAN_FLTCONF_STRINGS[(int)error.fltConf]);
+}
+
 FCTPFD_FUNC uint8_t FCTPFD_OPT::setRegions(uint8_t size) {
   FLEXCAN_EnterFreezeMode();
   FLEXCANb_FDCTRL(_bus) &= ~0x1B0000; /* clear both memory region bits */
@@ -473,7 +531,19 @@ FCTPFD_FUNC void FCTPFD_OPT::flexcan_interrupt() {
       ext_outputFD3(msg);
     }
   }
-  FLEXCANb_ESR1(_bus) = FLEXCANb_ESR1(_bus);
+
+  uint32_t esr1 = FLEXCANb_ESR1(_bus);
+  static uint32_t last_esr1 = 0;
+  if ( (last_esr1 & 0x7FFBF) != (esr1 & 0x7FFBF) ) {
+    if ( busESR1.size() < busESR1.capacity() ) {
+      busESR1.write(esr1);
+      busECR.write(FLEXCANb_ECR(_bus));
+      last_esr1 = esr1;
+    }
+  }
+  FLEXCANb_ESR1(_bus) |= esr1;
+
+  asm volatile ("dsb");	
 }
 
 FCTPFD_FUNC void FCTPFD_OPT::struct2queueRx(const CANFD_message_t &msg) {

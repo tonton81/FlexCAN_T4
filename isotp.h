@@ -41,6 +41,13 @@
 #include "ESP32_CAN.h"
 #endif
 
+enum ISOTP_FLOW
+{
+    FLOW_CTS = 0,
+    FLOW_WAIT= 1,
+    FLOW_ABORT = 2
+};
+
 typedef struct ISOTP_data {
   uint32_t id = 0;                         /* can identifier */
   struct {
@@ -50,7 +57,8 @@ typedef struct ISOTP_data {
   } flags;
   uint16_t len = 8;                        /* length of CAN message or callback payload */
   uint16_t blockSize = 0;                  /* used for flow control, specify how many frame blocks per frame control request */
-  uint8_t flow_control_type = 0;           /* flow control type: 0: Clear to Send, 1: Wait, 2: Abort */
+  uint16_t blockNum = 0;                   /* used with blockSize. This tracks how many blocks we're at. Redo flow control afterward */
+  ISOTP_FLOW flow_control_type = FLOW_CTS; /* flow control type */
   uint16_t separation_time = 0;            /* time between frames */
 } ISOTP_data;
 
@@ -83,14 +91,20 @@ class isotp_Base {
   public:
     virtual void _process_frame_data(const CAN_message_t &msg) = 0;
     virtual void write(const ISOTP_data &config, const uint8_t *buf, uint16_t size) = 0;
+    void setBoundID(int32_t newID) { boundID = newID; }
+    void setBoundBus(int32_t bus) { boundBus = bus; }
     _isotp_cb_ptr _isotp_handler = nullptr;
+    static int buffer_hosts;
+    int thisBufferHost = 0;
+    int boundBus = -1;
+    int boundID = -1;
 };
 
-static isotp_Base* _ISOTP_OBJ = nullptr;
+static isotp_Base* _ISOTP_OBJ[16] = { nullptr };
 
 ISOTP_CLASS class isotp : public isotp_Base {
   public:
-    isotp() { _ISOTP_OBJ = this; }
+    isotp();
 
 #if defined(TEENSYDUINO) // Teensy
     void setWriteBus(FlexCAN_T4_Base* _busWritePtr) { 
@@ -111,7 +125,7 @@ ISOTP_CLASS class isotp : public isotp_Base {
     void begin() { enable(); }
     void enable(bool yes = 1) { isotp_enabled = yes; }
     void setPadding(uint8_t _byte) { padding_value = _byte; }
-    void onReceive(_isotp_cb_ptr handler) { _ISOTP_OBJ->_isotp_handler = handler; }
+    void onReceive(_isotp_cb_ptr handler) { _ISOTP_OBJ[thisBufferHost]->_isotp_handler = handler; }
     void write(const ISOTP_data &config, const uint8_t *buf, uint16_t size);
     void write(const ISOTP_data &config, const char *buf, uint16_t size) { write(config, (const uint8_t*)buf, size); }
     void sendFlowControl(const ISOTP_data &config);
