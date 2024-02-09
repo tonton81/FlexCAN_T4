@@ -1328,10 +1328,11 @@ FCTP_FUNC bool FCTP_OPT::error(CAN_error_t &error, bool printDetails) {
   error.ESR1 = busESR1.read();
   error.ECR = busECR.read();
 
-  if ( (error.ESR1 & 0x400C8) == 0x40080 ) strncpy((char*)error.state, "Idle", (sizeof(error.state) - 1));
-  else if ( (error.ESR1 & 0x400C8) == 0x0 ) strncpy((char*)error.state, "Not synchronized to CAN bus", (sizeof(error.state) - 1));
-  else if ( (error.ESR1 & 0x400C8) == 0x40040 ) strncpy((char*)error.state, "Transmitting", (sizeof(error.state) - 1));
-  else if ( (error.ESR1 & 0x400C8) == 0x40008 ) strncpy((char*)error.state, "Receiving", (sizeof(error.state) - 1));
+  error.canState = CAN_STATE_UNK;
+  if ( (error.ESR1 & 0x400C8) == 0x40080 ) error.canState = CAN_STATE_IDLE;
+  else if ( (error.ESR1 & 0x400C8) == 0x0 ) error.canState = CAN_STATE_NO_SYNC;
+  else if ( (error.ESR1 & 0x400C8) == 0x40040 ) error.canState = CAN_STATE_TX;
+  else if ( (error.ESR1 & 0x400C8) == 0x40008 ) error.canState = CAN_STATE_RX;
 
   error.BIT1_ERR = (error.ESR1 & (1UL << 15)) ? 1 : 0;
   error.BIT0_ERR = (error.ESR1 & (1UL << 14)) ? 1 : 0;
@@ -1342,9 +1343,9 @@ FCTP_FUNC bool FCTP_OPT::error(CAN_error_t &error, bool printDetails) {
   error.TX_WRN = (error.ESR1 & (1UL << 9)) ? 1 : 0;
   error.RX_WRN = (error.ESR1 & (1UL << 8)) ? 1 : 0;
 
-  if ( (error.ESR1 & 0x30) == 0x0 ) strncpy((char*)error.FLT_CONF, "Error Active", (sizeof(error.FLT_CONF) - 1));
-  else if ( (error.ESR1 & 0x30) == 0x1 ) strncpy((char*)error.FLT_CONF, "Error Passive", (sizeof(error.FLT_CONF) - 1));
-  else strncpy((char*)error.FLT_CONF, "Bus off", (sizeof(error.FLT_CONF) - 1));
+  if ( (error.ESR1 & 0x30) == 0x0 ) error.fltConf = FLTCONF_ERR_ACTIVE;
+  else if ( (error.ESR1 & 0x30) == 0x1 ) error.fltConf = FLTCONF_ERR_PASSIVE;
+  else error.fltConf = FLTCONF_BUS_OFF;
 
   error.RX_ERR_COUNTER = (uint8_t)(error.ECR >> 8);
   error.TX_ERR_COUNTER = (uint8_t)error.ECR;
@@ -1355,7 +1356,7 @@ FCTP_FUNC bool FCTP_OPT::error(CAN_error_t &error, bool printDetails) {
 }
 
 FCTP_FUNC void FCTP_OPT::printErrors(const CAN_error_t &error) {
-  Serial.print("FlexCAN State: "); Serial.print((char*)error.state);
+  Serial.print("FlexCAN State: "); Serial.print(CAN_STATE_STRINGS[(int)error.canState]);
   if ( error.BIT1_ERR ) Serial.print(", BIT1_ERR");
   if ( error.BIT0_ERR ) Serial.print(", BIT0_ERR");
   if ( error.ACK_ERR ) Serial.print(", ACK_ERR");
@@ -1364,7 +1365,7 @@ FCTP_FUNC void FCTP_OPT::printErrors(const CAN_error_t &error) {
   if ( error.STF_ERR ) Serial.print(", STF_ERR");
   if ( error.RX_WRN ) Serial.printf(", RX_WRN: %d", error.RX_ERR_COUNTER);
   if ( error.TX_WRN ) Serial.printf(", TX_WRN: %d", error.TX_ERR_COUNTER);
-  Serial.printf(", FLT_CONF: %s\n", (char*)error.FLT_CONF);
+  Serial.printf(", FLT_CONF: %s\n", CAN_FLTCONF_STRINGS[(int)error.fltConf]);
 }
 
 FCTP_FUNC void FCTP_OPT::enableDMA(bool state) { /* only CAN3 supports this on 1062, untested */
